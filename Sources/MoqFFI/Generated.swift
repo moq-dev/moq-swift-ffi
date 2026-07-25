@@ -1948,6 +1948,13 @@ public protocol MoqBroadcastProducerProtocol: AnyObject, Sendable {
      */
     func setRoute(route: MoqRoute) throws 
     
+    /**
+     * Replace the catalog properties shared by every video rendition.
+     *
+     * Rotation is clockwise and normalized to the nearest quarter turn. An absent field is removed from the next catalog update.
+     */
+    func setVideoProperties(properties: MoqVideoProperties) throws 
+    
 }
 open class MoqBroadcastProducer: MoqBroadcastProducerProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
@@ -2222,6 +2229,19 @@ open func setRoute(route: MoqRoute)throws   {try rustCallWithError(FfiConverterT
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_set_route(
             self.uniffiCloneHandle(),
         FfiConverterTypeMoqRoute_lower(route),$0
+    )
+}
+}
+    
+    /**
+     * Replace the catalog properties shared by every video rendition.
+     *
+     * Rotation is clockwise and normalized to the nearest quarter turn. An absent field is removed from the next catalog update.
+     */
+open func setVideoProperties(properties: MoqVideoProperties)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_set_video_properties(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeMoqVideoProperties_lower(properties),$0
     )
 }
 }
@@ -8764,6 +8784,87 @@ public func FfiConverterTypeMoqVideoHint_lower(_ value: MoqVideoHint) -> RustBuf
     return FfiConverterTypeMoqVideoHint.lower(value)
 }
 
+
+/**
+ * Catalog properties shared by every video rendition.
+ *
+ * Passing an absent field clears it from the next catalog snapshot rather than preserving the previous value.
+ */
+public struct MoqVideoProperties: Equatable, Hashable {
+    /**
+     * Final rendered size after rotation, or absent to clear the explicit display size.
+     */
+    public var display: MoqDimensions?
+    /**
+     * Clockwise rotation in degrees, or absent to clear the explicit rotation.
+     */
+    public var rotation: Double?
+    /**
+     * Whether to flip horizontally after rotation, or absent to clear the explicit value.
+     */
+    public var flip: Bool?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Final rendered size after rotation, or absent to clear the explicit display size.
+         */display: MoqDimensions? = nil, 
+        /**
+         * Clockwise rotation in degrees, or absent to clear the explicit rotation.
+         */rotation: Double? = nil, 
+        /**
+         * Whether to flip horizontally after rotation, or absent to clear the explicit value.
+         */flip: Bool? = nil) {
+        self.display = display
+        self.rotation = rotation
+        self.flip = flip
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension MoqVideoProperties: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqVideoProperties: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqVideoProperties {
+        return
+            try MoqVideoProperties(
+                display: FfiConverterOptionTypeMoqDimensions.read(from: &buf), 
+                rotation: FfiConverterOptionDouble.read(from: &buf), 
+                flip: FfiConverterOptionBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MoqVideoProperties, into buf: inout [UInt8]) {
+        FfiConverterOptionTypeMoqDimensions.write(value.display, into: &buf)
+        FfiConverterOptionDouble.write(value.rotation, into: &buf)
+        FfiConverterOptionBool.write(value.flip, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoProperties_lift(_ buf: RustBuffer) throws -> MoqVideoProperties {
+    return try FfiConverterTypeMoqVideoProperties.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoProperties_lower(_ value: MoqVideoProperties) -> RustBuffer {
+    return FfiConverterTypeMoqVideoProperties.lower(value)
+}
+
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
@@ -10209,6 +10310,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_route() != 2362) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_video_properties() != 30609) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqgroupproducer_abort() != 22408) {

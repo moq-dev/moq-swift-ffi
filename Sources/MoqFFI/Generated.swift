@@ -1955,6 +1955,18 @@ public protocol MoqBroadcastProducerProtocol: AnyObject, Sendable {
      */
     func setVideoProperties(properties: MoqVideoProperties) throws 
     
+    /**
+     * Open a video track on this broadcast, encoding the raw frames written to
+     * it.
+     *
+     * The encoder opens here, so an unsupported codec, resolution, or backend
+     * fails now rather than on the first frame. The track is named after the
+     * codec (`.avc3` / `.hev1`) and its catalog rendition is published
+     * immediately, read out of the encoder rather than guessed, so a subscriber
+     * can find the track before a frame is written to it.
+     */
+    func publishVideo(input: MoqVideoEncoderInput, output: MoqVideoEncoderOutput) throws  -> MoqVideoProducer
+    
 }
 open class MoqBroadcastProducer: MoqBroadcastProducerProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
@@ -2244,6 +2256,26 @@ open func setVideoProperties(properties: MoqVideoProperties)throws   {try rustCa
         FfiConverterTypeMoqVideoProperties_lower(properties),$0
     )
 }
+}
+    
+    /**
+     * Open a video track on this broadcast, encoding the raw frames written to
+     * it.
+     *
+     * The encoder opens here, so an unsupported codec, resolution, or backend
+     * fails now rather than on the first frame. The track is named after the
+     * codec (`.avc3` / `.hev1`) and its catalog rendition is published
+     * immediately, read out of the encoder rather than guessed, so a subscriber
+     * can find the track before a frame is written to it.
+     */
+open func publishVideo(input: MoqVideoEncoderInput, output: MoqVideoEncoderOutput)throws  -> MoqVideoProducer  {
+    return try  FfiConverterTypeMoqVideoProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_video(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeMoqVideoEncoderInput_lower(input),
+        FfiConverterTypeMoqVideoEncoderOutput_lower(output),$0
+    )
+})
 }
     
 
@@ -5134,6 +5166,16 @@ public protocol MoqRequestProtocol: AnyObject, Sendable {
     func cancel() 
     
     /**
+     * The query-free request path, or empty for the root/missing path.
+     */
+    func path()  -> String
+    
+    /**
+     * The encoded request query without the leading `?`, if present.
+     */
+    func query()  -> String?
+    
+    /**
      * Reject the session with the given HTTP status code.
      *
      * Returns `AlreadyResponded` if `accept()` or `reject()` has already been called.
@@ -5249,6 +5291,28 @@ open func cancel()  {try! rustCall() {
             self.uniffiCloneHandle(),$0
     )
 }
+}
+    
+    /**
+     * The query-free request path, or empty for the root/missing path.
+     */
+open func path() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_moq_ffi_fn_method_moqrequest_path(
+            self.uniffiCloneHandle(),$0
+    )
+})
+}
+    
+    /**
+     * The encoded request query without the leading `?`, if present.
+     */
+open func query() -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+    uniffi_moq_ffi_fn_method_moqrequest_query(
+            self.uniffiCloneHandle(),$0
+    )
+})
 }
     
     /**
@@ -7078,6 +7142,238 @@ public func FfiConverterTypeMoqTrackRequest_lower(_ value: MoqTrackRequest) -> U
 
 
 
+
+
+/**
+ * Producer for a raw-video track.
+ *
+ * Built via [`MoqBroadcastProducer::publish_video`]. Each
+ * [`write`](Self::write) accepts a [`MoqVideoFrame`] whose `data` is in the
+ * pixel format declared by the [`MoqVideoEncoderInput`] passed at publish time.
+ */
+public protocol MoqVideoProducerProtocol: AnyObject, Sendable {
+    
+    /**
+     * Cut a new group at the next written frame.
+     *
+     * Optional. The encoder already keyframes every
+     * [`gop`](MoqVideoEncoderOutput::gop) frames, and each of those cuts a
+     * group, so a subscriber can always join without you calling this. Reach for
+     * it only to place the boundaries yourself: aligning groups with something
+     * the encoder cannot see, such as a scene change, a source switch, or
+     * resuming after an idle gap.
+     *
+     * The next frame is encoded as a keyframe, which closes the open group and
+     * starts a new one at it. Calling this repeatedly before that frame arrives
+     * cuts once, not several times.
+     */
+    func cut() throws 
+    
+    /**
+     * Flush any frames the codec is still holding and finalize the track.
+     */
+    func finish() throws 
+    
+    /**
+     * Retune the live encoder to `bitrate` bits per second, taking effect from
+     * roughly the next frame. No keyframe is forced, so this is cheap enough to
+     * drive from a congestion controller.
+     *
+     * The configured bitrate is a ceiling on some backends (openh264 rejects a
+     * raise above the rate it opened at), so set
+     * [`bitrate`](MoqVideoEncoderOutput::bitrate) to the highest you will ask for
+     * and adapt downwards from there.
+     *
+     * Errors if this backend cannot retune while running. That is not fatal: the
+     * encoder keeps running at its current rate, so stop adapting rather than
+     * stop publishing.
+     */
+    func setBitrate(bitrate: UInt64) throws 
+    
+    /**
+     * Encode and publish one raw frame.
+     *
+     * A backend that pipelines publishes an earlier frame's output here, so a
+     * call that emits nothing on the wire is normal rather than an error.
+     */
+    func write(frame: MoqVideoFrame) throws 
+    
+}
+/**
+ * Producer for a raw-video track.
+ *
+ * Built via [`MoqBroadcastProducer::publish_video`]. Each
+ * [`write`](Self::write) accepts a [`MoqVideoFrame`] whose `data` is in the
+ * pixel format declared by the [`MoqVideoEncoderInput`] passed at publish time.
+ */
+open class MoqVideoProducer: MoqVideoProducerProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_moq_ffi_fn_clone_moqvideoproducer(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_moq_ffi_fn_free_moqvideoproducer(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Cut a new group at the next written frame.
+     *
+     * Optional. The encoder already keyframes every
+     * [`gop`](MoqVideoEncoderOutput::gop) frames, and each of those cuts a
+     * group, so a subscriber can always join without you calling this. Reach for
+     * it only to place the boundaries yourself: aligning groups with something
+     * the encoder cannot see, such as a scene change, a source switch, or
+     * resuming after an idle gap.
+     *
+     * The next frame is encoded as a keyframe, which closes the open group and
+     * starts a new one at it. Calling this repeatedly before that frame arrives
+     * cuts once, not several times.
+     */
+open func cut()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+    uniffi_moq_ffi_fn_method_moqvideoproducer_cut(
+            self.uniffiCloneHandle(),$0
+    )
+}
+}
+    
+    /**
+     * Flush any frames the codec is still holding and finalize the track.
+     */
+open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+    uniffi_moq_ffi_fn_method_moqvideoproducer_finish(
+            self.uniffiCloneHandle(),$0
+    )
+}
+}
+    
+    /**
+     * Retune the live encoder to `bitrate` bits per second, taking effect from
+     * roughly the next frame. No keyframe is forced, so this is cheap enough to
+     * drive from a congestion controller.
+     *
+     * The configured bitrate is a ceiling on some backends (openh264 rejects a
+     * raise above the rate it opened at), so set
+     * [`bitrate`](MoqVideoEncoderOutput::bitrate) to the highest you will ask for
+     * and adapt downwards from there.
+     *
+     * Errors if this backend cannot retune while running. That is not fatal: the
+     * encoder keeps running at its current rate, so stop adapting rather than
+     * stop publishing.
+     */
+open func setBitrate(bitrate: UInt64)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+    uniffi_moq_ffi_fn_method_moqvideoproducer_set_bitrate(
+            self.uniffiCloneHandle(),
+        FfiConverterUInt64.lower(bitrate),$0
+    )
+}
+}
+    
+    /**
+     * Encode and publish one raw frame.
+     *
+     * A backend that pipelines publishes an earlier frame's output here, so a
+     * call that emits nothing on the wire is normal rather than an error.
+     */
+open func write(frame: MoqVideoFrame)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+    uniffi_moq_ffi_fn_method_moqvideoproducer_write(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeMoqVideoFrame_lower(frame),$0
+    )
+}
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqVideoProducer: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = MoqVideoProducer
+
+    public static func lift(_ handle: UInt64) throws -> MoqVideoProducer {
+        return MoqVideoProducer(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: MoqVideoProducer) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqVideoProducer {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: MoqVideoProducer, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoProducer_lift(_ handle: UInt64) throws -> MoqVideoProducer {
+    return try FfiConverterTypeMoqVideoProducer.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoProducer_lower(_ value: MoqVideoProducer) -> UInt64 {
+    return FfiConverterTypeMoqVideoProducer.lower(value)
+}
+
+
+
+
 public struct MoqAudio: Equatable, Hashable {
     public var codec: String
     public var description: Data?
@@ -8683,6 +8979,255 @@ public func FfiConverterTypeMoqVideo_lower(_ value: MoqVideo) -> RustBuffer {
 
 
 /**
+ * Raw frame layout the caller will pass to [`MoqVideoProducer::write`], plus
+ * the resolution and rate the encoder is opened at. Every written frame must
+ * match `width` x `height`; scale before writing if your source moves.
+ */
+public struct MoqVideoEncoderInput: Equatable, Hashable {
+    public var format: MoqVideoPixelFormat
+    /**
+     * Encoded width in pixels. Must be even (I420 chroma is subsampled 2x2).
+     */
+    public var width: UInt32
+    /**
+     * Encoded height in pixels. Must be even.
+     */
+    public var height: UInt32
+    /**
+     * Nominal frames per second, used for the codec time base and the default
+     * bitrate and keyframe interval. Must be non-zero.
+     */
+    public var framerate: UInt32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(format: MoqVideoPixelFormat, 
+        /**
+         * Encoded width in pixels. Must be even (I420 chroma is subsampled 2x2).
+         */width: UInt32, 
+        /**
+         * Encoded height in pixels. Must be even.
+         */height: UInt32, 
+        /**
+         * Nominal frames per second, used for the codec time base and the default
+         * bitrate and keyframe interval. Must be non-zero.
+         */framerate: UInt32) {
+        self.format = format
+        self.width = width
+        self.height = height
+        self.framerate = framerate
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension MoqVideoEncoderInput: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqVideoEncoderInput: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqVideoEncoderInput {
+        return
+            try MoqVideoEncoderInput(
+                format: FfiConverterTypeMoqVideoPixelFormat.read(from: &buf), 
+                width: FfiConverterUInt32.read(from: &buf), 
+                height: FfiConverterUInt32.read(from: &buf), 
+                framerate: FfiConverterUInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MoqVideoEncoderInput, into buf: inout [UInt8]) {
+        FfiConverterTypeMoqVideoPixelFormat.write(value.format, into: &buf)
+        FfiConverterUInt32.write(value.width, into: &buf)
+        FfiConverterUInt32.write(value.height, into: &buf)
+        FfiConverterUInt32.write(value.framerate, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoEncoderInput_lift(_ buf: RustBuffer) throws -> MoqVideoEncoderInput {
+    return try FfiConverterTypeMoqVideoEncoderInput.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoEncoderInput_lower(_ value: MoqVideoEncoderInput) -> RustBuffer {
+    return FfiConverterTypeMoqVideoEncoderInput.lower(value)
+}
+
+
+/**
+ * Codec-side configuration.
+ */
+public struct MoqVideoEncoderOutput: Equatable, Hashable {
+    public var codec: MoqVideoCodec
+    /**
+     * Target bitrate in bits per second. `None` derives one from the resolution
+     * and framerate.
+     */
+    public var bitrate: UInt64?
+    /**
+     * Keyframe interval in frames: a subscriber joining mid-stream waits at most
+     * this many frames before it can decode. `None` uses ~2 seconds.
+     */
+    public var gop: UInt32?
+    /**
+     * Encoder implementation preference. Pass
+     * [`MoqVideoEncoderKind::Auto`] unless you need a specific backend.
+     */
+    public var kind: MoqVideoEncoderKind
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(codec: MoqVideoCodec, 
+        /**
+         * Target bitrate in bits per second. `None` derives one from the resolution
+         * and framerate.
+         */bitrate: UInt64? = nil, 
+        /**
+         * Keyframe interval in frames: a subscriber joining mid-stream waits at most
+         * this many frames before it can decode. `None` uses ~2 seconds.
+         */gop: UInt32? = nil, 
+        /**
+         * Encoder implementation preference. Pass
+         * [`MoqVideoEncoderKind::Auto`] unless you need a specific backend.
+         */kind: MoqVideoEncoderKind) {
+        self.codec = codec
+        self.bitrate = bitrate
+        self.gop = gop
+        self.kind = kind
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension MoqVideoEncoderOutput: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqVideoEncoderOutput: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqVideoEncoderOutput {
+        return
+            try MoqVideoEncoderOutput(
+                codec: FfiConverterTypeMoqVideoCodec.read(from: &buf), 
+                bitrate: FfiConverterOptionUInt64.read(from: &buf), 
+                gop: FfiConverterOptionUInt32.read(from: &buf), 
+                kind: FfiConverterTypeMoqVideoEncoderKind.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MoqVideoEncoderOutput, into buf: inout [UInt8]) {
+        FfiConverterTypeMoqVideoCodec.write(value.codec, into: &buf)
+        FfiConverterOptionUInt64.write(value.bitrate, into: &buf)
+        FfiConverterOptionUInt32.write(value.gop, into: &buf)
+        FfiConverterTypeMoqVideoEncoderKind.write(value.kind, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoEncoderOutput_lift(_ buf: RustBuffer) throws -> MoqVideoEncoderOutput {
+    return try FfiConverterTypeMoqVideoEncoderOutput.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoEncoderOutput_lower(_ value: MoqVideoEncoderOutput) -> RustBuffer {
+    return FfiConverterTypeMoqVideoEncoderOutput.lower(value)
+}
+
+
+/**
+ * One raw video frame: pixels plus a presentation timestamp.
+ *
+ * The pixel format and resolution are fixed by [`MoqVideoEncoderInput`] at
+ * publish time, so a frame carries neither. `data` is exactly one picture in
+ * that layout.
+ */
+public struct MoqVideoFrame: Equatable, Hashable {
+    /**
+     * Presentation timestamp, in microseconds.
+     */
+    public var timestampUs: UInt64
+    /**
+     * The pixels, in the configured layout.
+     */
+    public var data: Data
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Presentation timestamp, in microseconds.
+         */timestampUs: UInt64, 
+        /**
+         * The pixels, in the configured layout.
+         */data: Data) {
+        self.timestampUs = timestampUs
+        self.data = data
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension MoqVideoFrame: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqVideoFrame: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqVideoFrame {
+        return
+            try MoqVideoFrame(
+                timestampUs: FfiConverterUInt64.read(from: &buf), 
+                data: FfiConverterData.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MoqVideoFrame, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.timestampUs, into: &buf)
+        FfiConverterData.write(value.data, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoFrame_lift(_ buf: RustBuffer) throws -> MoqVideoFrame {
+    return try FfiConverterTypeMoqVideoFrame.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoFrame_lower(_ value: MoqVideoFrame) -> RustBuffer {
+    return FfiConverterTypeMoqVideoFrame.lower(value)
+}
+
+
+/**
  * Caller-provided video catalog fields for [`MoqInit`].
  *
  * Every field is optional and fills only a gap the stream leaves; a value the stream detects wins.
@@ -9149,6 +9694,8 @@ public enum MoqError: Swift.Error, Equatable, Hashable, Foundation.LocalizedErro
     
     case Audio(message: String)
     
+    case Video(message: String)
+    
     case Url(message: String)
     
     case TimeOverflow(message: String)
@@ -9243,75 +9790,79 @@ public struct FfiConverterTypeMoqError: FfiConverterRustBuffer {
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 6: return .Url(
+        case 6: return .Video(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 7: return .TimeOverflow(
+        case 7: return .Url(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 8: return .LogLevel(
+        case 8: return .TimeOverflow(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 9: return .Task(
+        case 9: return .LogLevel(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 10: return .Json(
+        case 10: return .Task(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 11: return .Cancelled(
+        case 11: return .Json(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 12: return .Closed(
+        case 12: return .Cancelled(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 13: return .Connect(
+        case 13: return .Closed(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 14: return .Bind(
+        case 14: return .Connect(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 15: return .Reject(
+        case 15: return .Bind(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 16: return .AlreadyResponded(
+        case 16: return .Reject(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 17: return .Codec(
+        case 17: return .AlreadyResponded(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 18: return .Unauthorized(
+        case 18: return .Codec(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 19: return .Forbidden(
+        case 19: return .Unauthorized(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 20: return .NotFound(
+        case 20: return .Forbidden(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 21: return .Unsupported(
+        case 21: return .NotFound(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 22: return .InvalidRoute(
+        case 22: return .Unsupported(
             message: try FfiConverterString.read(from: &buf)
         )
         
-        case 23: return .Log(
+        case 23: return .InvalidRoute(
+            message: try FfiConverterString.read(from: &buf)
+        )
+        
+        case 24: return .Log(
             message: try FfiConverterString.read(from: &buf)
         )
         
@@ -9336,42 +9887,44 @@ public struct FfiConverterTypeMoqError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(4))
         case .Audio(_ /* message is ignored*/):
             writeInt(&buf, Int32(5))
-        case .Url(_ /* message is ignored*/):
+        case .Video(_ /* message is ignored*/):
             writeInt(&buf, Int32(6))
-        case .TimeOverflow(_ /* message is ignored*/):
+        case .Url(_ /* message is ignored*/):
             writeInt(&buf, Int32(7))
-        case .LogLevel(_ /* message is ignored*/):
+        case .TimeOverflow(_ /* message is ignored*/):
             writeInt(&buf, Int32(8))
-        case .Task(_ /* message is ignored*/):
+        case .LogLevel(_ /* message is ignored*/):
             writeInt(&buf, Int32(9))
-        case .Json(_ /* message is ignored*/):
+        case .Task(_ /* message is ignored*/):
             writeInt(&buf, Int32(10))
-        case .Cancelled(_ /* message is ignored*/):
+        case .Json(_ /* message is ignored*/):
             writeInt(&buf, Int32(11))
-        case .Closed(_ /* message is ignored*/):
+        case .Cancelled(_ /* message is ignored*/):
             writeInt(&buf, Int32(12))
-        case .Connect(_ /* message is ignored*/):
+        case .Closed(_ /* message is ignored*/):
             writeInt(&buf, Int32(13))
-        case .Bind(_ /* message is ignored*/):
+        case .Connect(_ /* message is ignored*/):
             writeInt(&buf, Int32(14))
-        case .Reject(_ /* message is ignored*/):
+        case .Bind(_ /* message is ignored*/):
             writeInt(&buf, Int32(15))
-        case .AlreadyResponded(_ /* message is ignored*/):
+        case .Reject(_ /* message is ignored*/):
             writeInt(&buf, Int32(16))
-        case .Codec(_ /* message is ignored*/):
+        case .AlreadyResponded(_ /* message is ignored*/):
             writeInt(&buf, Int32(17))
-        case .Unauthorized(_ /* message is ignored*/):
+        case .Codec(_ /* message is ignored*/):
             writeInt(&buf, Int32(18))
-        case .Forbidden(_ /* message is ignored*/):
+        case .Unauthorized(_ /* message is ignored*/):
             writeInt(&buf, Int32(19))
-        case .NotFound(_ /* message is ignored*/):
+        case .Forbidden(_ /* message is ignored*/):
             writeInt(&buf, Int32(20))
-        case .Unsupported(_ /* message is ignored*/):
+        case .NotFound(_ /* message is ignored*/):
             writeInt(&buf, Int32(21))
-        case .InvalidRoute(_ /* message is ignored*/):
+        case .Unsupported(_ /* message is ignored*/):
             writeInt(&buf, Int32(22))
-        case .Log(_ /* message is ignored*/):
+        case .InvalidRoute(_ /* message is ignored*/):
             writeInt(&buf, Int32(23))
+        case .Log(_ /* message is ignored*/):
+            writeInt(&buf, Int32(24))
 
         
         }
@@ -9392,6 +9945,269 @@ public func FfiConverterTypeMoqError_lift(_ buf: RustBuffer) throws -> MoqError 
 public func FfiConverterTypeMoqError_lower(_ value: MoqError) -> RustBuffer {
     return FfiConverterTypeMoqError.lower(value)
 }
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Output video codec.
+ *
+ * Not every codec has a backend on every machine: H.265 is hardware-only, so
+ * publishing it fails where no hardware encoder is available.
+ */
+
+public enum MoqVideoCodec: Equatable, Hashable {
+    
+    /**
+     * H.264 / AVC, published as an `avc3` track.
+     */
+    case h264
+    /**
+     * H.265 / HEVC, published as a `hev1` track.
+     */
+    case h265
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MoqVideoCodec: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqVideoCodec: FfiConverterRustBuffer {
+    typealias SwiftType = MoqVideoCodec
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqVideoCodec {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .h264
+        
+        case 2: return .h265
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MoqVideoCodec, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .h264:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .h265:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoCodec_lift(_ buf: RustBuffer) throws -> MoqVideoCodec {
+    return try FfiConverterTypeMoqVideoCodec.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoCodec_lower(_ value: MoqVideoCodec) -> RustBuffer {
+    return FfiConverterTypeMoqVideoCodec.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Which encoder implementation to use.
+ *
+ * These bindings compile VideoToolbox (macOS), Media Foundation (Windows), and
+ * openh264 (software, everywhere). NVENC/NVDEC are a libmoq-only build option
+ * and VAAPI is opt-in everywhere, so Linux here is software-only.
+ */
+
+public enum MoqVideoEncoderKind: Equatable, Hashable {
+    
+    /**
+     * Prefer a platform hardware encoder, falling back to software. On Linux
+     * that fallback is the only option these bindings have.
+     */
+    case auto
+    /**
+     * Hardware only; fails if none is available, which on Linux is always.
+     */
+    case hardware
+    /**
+     * Software only (openh264, H.264 only).
+     */
+    case software
+    /**
+     * A specific backend that moq-ffi compiles: `"videotoolbox"` (macOS),
+     * `"mediafoundation"` (Windows), or `"openh264"` (software, everywhere).
+     * Naming one this build lacks fails with a no-encoder error, so reach for
+     * this only when [`Auto`](Self::Auto) picks the wrong one.
+     */
+    case named(name: String
+    )
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MoqVideoEncoderKind: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqVideoEncoderKind: FfiConverterRustBuffer {
+    typealias SwiftType = MoqVideoEncoderKind
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqVideoEncoderKind {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .auto
+        
+        case 2: return .hardware
+        
+        case 3: return .software
+        
+        case 4: return .named(name: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MoqVideoEncoderKind, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .auto:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .hardware:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .software:
+            writeInt(&buf, Int32(3))
+        
+        
+        case let .named(name):
+            writeInt(&buf, Int32(4))
+            FfiConverterString.write(name, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoEncoderKind_lift(_ buf: RustBuffer) throws -> MoqVideoEncoderKind {
+    return try FfiConverterTypeMoqVideoEncoderKind.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoEncoderKind_lower(_ value: MoqVideoEncoderKind) -> RustBuffer {
+    return FfiConverterTypeMoqVideoEncoderKind.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Pixel layout of the raw frames passed to [`MoqVideoProducer::write`].
+ */
+
+public enum MoqVideoPixelFormat: Equatable, Hashable {
+    
+    /**
+     * Tightly-packed planar I420: Y, then U, then V, no row padding
+     * (`width * height * 3 / 2` bytes).
+     */
+    case i420
+    /**
+     * Tightly-packed RGBA, `width * height * 4` bytes, no row padding.
+     */
+    case rgba
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MoqVideoPixelFormat: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqVideoPixelFormat: FfiConverterRustBuffer {
+    typealias SwiftType = MoqVideoPixelFormat
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqVideoPixelFormat {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .i420
+        
+        case 2: return .rgba
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MoqVideoPixelFormat, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .i420:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .rgba:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoPixelFormat_lift(_ buf: RustBuffer) throws -> MoqVideoPixelFormat {
+    return try FfiConverterTypeMoqVideoPixelFormat.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoPixelFormat_lower(_ value: MoqVideoPixelFormat) -> RustBuffer {
+    return FfiConverterTypeMoqVideoPixelFormat.lower(value)
+}
+
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
@@ -10315,6 +11131,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_video_properties() != 30609) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_video() != 58624) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_moq_ffi_checksum_method_moqgroupproducer_abort() != 22408) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -10423,6 +11242,12 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqrequest_cancel() != 63846) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_moq_ffi_checksum_method_moqrequest_path() != 52535) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqrequest_query() != 18056) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_moq_ffi_checksum_method_moqrequest_reject() != 28918) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -10517,6 +11342,18 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqsession_stats() != 26506) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_cut() != 55246) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_finish() != 27116) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_set_bitrate() != 53159) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_write() != 63316) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_constructor_moqoriginproducer_new() != 58041) {

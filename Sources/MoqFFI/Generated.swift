@@ -1338,6 +1338,15 @@ public protocol MoqBroadcastConsumerProtocol: AnyObject, Sendable {
     func fetchGroup(name: String, sequence: UInt64, options: MoqFetchGroupOptions?) async throws  -> MoqGroupConsumer
     
     /**
+     * Fetch one group and decode its track container into media frames.
+     *
+     * Unlike [`Self::subscribe_media`], this does not create a live subscription or apply
+     * latency-based group skipping. The returned consumer reads exactly the requested group
+     * until [`MoqMediaGroupConsumer::next`] returns `None`.
+     */
+    func fetchMediaGroup(name: String, sequence: UInt64, container: MoqContainer, options: MoqFetchGroupOptions?) async throws  -> MoqMediaGroupConsumer
+    
+    /**
      * The route the broadcast currently takes to reach this origin.
      */
     func route()  -> MoqRoute
@@ -1483,6 +1492,30 @@ open func fetchGroup(name: String, sequence: UInt64, options: MoqFetchGroupOptio
             completeFunc: ffi_moq_ffi_rust_future_complete_u64,
             freeFunc: ffi_moq_ffi_rust_future_free_u64,
             liftFunc: FfiConverterTypeMoqGroupConsumer_lift,
+            errorHandler: FfiConverterTypeMoqError_lift
+        )
+}
+    
+    /**
+     * Fetch one group and decode its track container into media frames.
+     *
+     * Unlike [`Self::subscribe_media`], this does not create a live subscription or apply
+     * latency-based group skipping. The returned consumer reads exactly the requested group
+     * until [`MoqMediaGroupConsumer::next`] returns `None`.
+     */
+open func fetchMediaGroup(name: String, sequence: UInt64, container: MoqContainer, options: MoqFetchGroupOptions?)async throws  -> MoqMediaGroupConsumer  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_moq_ffi_fn_method_moqbroadcastconsumer_fetch_media_group(
+                    self.uniffiCloneHandle(),
+                    FfiConverterString.lower(name),FfiConverterUInt64.lower(sequence),FfiConverterTypeMoqContainer_lower(container),FfiConverterOptionTypeMoqFetchGroupOptions.lower(options)
+                )
+            },
+            pollFunc: ffi_moq_ffi_rust_future_poll_u64,
+            completeFunc: ffi_moq_ffi_rust_future_complete_u64,
+            freeFunc: ffi_moq_ffi_rust_future_free_u64,
+            liftFunc: FfiConverterTypeMoqMediaGroupConsumer_lift,
             errorHandler: FfiConverterTypeMoqError_lift
         )
 }
@@ -4259,6 +4292,176 @@ public func FfiConverterTypeMoqMediaConsumer_lower(_ value: MoqMediaConsumer) ->
 
 
 
+/**
+ * A finite, container-decoded media group returned by
+ * [`MoqBroadcastConsumer::fetch_media_group`].
+ */
+public protocol MoqMediaGroupConsumerProtocol: AnyObject, Sendable {
+    
+    /**
+     * Cancel all current and future `next()` calls.
+     */
+    func cancel() 
+    
+    /**
+     * Read the next decoded media frame, or `None` when the group ends.
+     */
+    func next() async throws  -> MoqMediaFrame?
+    
+    /**
+     * The sequence number of this group within the track.
+     */
+    func sequence()  -> UInt64
+    
+}
+/**
+ * A finite, container-decoded media group returned by
+ * [`MoqBroadcastConsumer::fetch_media_group`].
+ */
+open class MoqMediaGroupConsumer: MoqMediaGroupConsumerProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_moq_ffi_fn_clone_moqmediagroupconsumer(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_moq_ffi_fn_free_moqmediagroupconsumer(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Cancel all current and future `next()` calls.
+     */
+open func cancel()  {try! rustCall() {
+    uniffi_moq_ffi_fn_method_moqmediagroupconsumer_cancel(
+            self.uniffiCloneHandle(),$0
+    )
+}
+}
+    
+    /**
+     * Read the next decoded media frame, or `None` when the group ends.
+     */
+open func next()async throws  -> MoqMediaFrame?  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_moq_ffi_fn_method_moqmediagroupconsumer_next(
+                    self.uniffiCloneHandle()
+                    
+                )
+            },
+            pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
+            completeFunc: ffi_moq_ffi_rust_future_complete_rust_buffer,
+            freeFunc: ffi_moq_ffi_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterOptionTypeMoqMediaFrame.lift,
+            errorHandler: FfiConverterTypeMoqError_lift
+        )
+}
+    
+    /**
+     * The sequence number of this group within the track.
+     */
+open func sequence() -> UInt64  {
+    return try!  FfiConverterUInt64.lift(try! rustCall() {
+    uniffi_moq_ffi_fn_method_moqmediagroupconsumer_sequence(
+            self.uniffiCloneHandle(),$0
+    )
+})
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqMediaGroupConsumer: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = MoqMediaGroupConsumer
+
+    public static func lift(_ handle: UInt64) throws -> MoqMediaGroupConsumer {
+        return MoqMediaGroupConsumer(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: MoqMediaGroupConsumer) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqMediaGroupConsumer {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: MoqMediaGroupConsumer, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqMediaGroupConsumer_lift(_ handle: UInt64) throws -> MoqMediaGroupConsumer {
+    return try FfiConverterTypeMoqMediaGroupConsumer.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqMediaGroupConsumer_lower(_ value: MoqMediaGroupConsumer) -> UInt64 {
+    return FfiConverterTypeMoqMediaGroupConsumer.lower(value)
+}
+
+
+
+
+
+
 public protocol MoqMediaProducerProtocol: AnyObject, Sendable {
     
     /**
@@ -4638,6 +4841,9 @@ public protocol MoqOriginConsumerProtocol: AnyObject, Sendable {
     
     /**
      * Wait for a specific broadcast to be announced by path.
+     *
+     * This is how you resolve a path right after connecting: announcements arrive over the
+     * session after it opens, so `request_broadcast` on its own races them.
      */
     func announcedBroadcast(path: String) throws  -> MoqAnnouncedBroadcast
     
@@ -4649,6 +4855,9 @@ public protocol MoqOriginConsumerProtocol: AnyObject, Sendable {
      * errors if nothing can serve it. Unlike `announced_broadcast`, this does *not* wait
      * indefinitely for a future announcement: it resolves or fails based on what is
      * announced now plus any dynamic fallback. Drop the returned future to cancel.
+     *
+     * Calling this straight after connecting therefore races the session's announcements
+     * and can report a live broadcast as unroutable. Await `announced_broadcast` first.
      */
     func requestBroadcast(path: String) async throws  -> MoqBroadcastConsumer
     
@@ -4720,6 +4929,9 @@ open func announced(prefix: String)throws  -> MoqAnnounced  {
     
     /**
      * Wait for a specific broadcast to be announced by path.
+     *
+     * This is how you resolve a path right after connecting: announcements arrive over the
+     * session after it opens, so `request_broadcast` on its own races them.
      */
 open func announcedBroadcast(path: String)throws  -> MoqAnnouncedBroadcast  {
     return try  FfiConverterTypeMoqAnnouncedBroadcast_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
@@ -4738,6 +4950,9 @@ open func announcedBroadcast(path: String)throws  -> MoqAnnouncedBroadcast  {
      * errors if nothing can serve it. Unlike `announced_broadcast`, this does *not* wait
      * indefinitely for a future announcement: it resolves or fails based on what is
      * announced now plus any dynamic fallback. Drop the returned future to cancel.
+     *
+     * Calling this straight after connecting therefore races the session's announcements
+     * and can report a live broadcast as unroutable. Await `announced_broadcast` first.
      */
 open func requestBroadcast(path: String)async throws  -> MoqBroadcastConsumer  {
     return
@@ -10936,6 +11151,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_fetch_group() != 28258) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_fetch_media_group() != 19442) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_route() != 16738) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -10976,6 +11194,15 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqmediaconsumer_next() != 49285) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqmediagroupconsumer_cancel() != 24598) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqmediagroupconsumer_next() != 57043) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqmediagroupconsumer_sequence() != 12408) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqroutewatch_cancel() != 61300) {
@@ -11059,10 +11286,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_announced() != 65430) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_announced_broadcast() != 54838) {
+    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_announced_broadcast() != 12781) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_request_broadcast() != 63880) {
+    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_request_broadcast() != 42600) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqorigindynamic_cancel() != 55027) {

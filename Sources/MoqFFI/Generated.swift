@@ -2661,6 +2661,13 @@ public func FfiConverterTypeMoqCatalogConsumer_lower(_ value: MoqCatalogConsumer
 
 
 
+/**
+ * Builds a [`MoqSession`]: configure it, then [`connect`](Self::connect).
+ *
+ * The configuration differs by target, because the transport does. Native builds expose
+ * the QUIC socket and TLS trust store; the browser owns both, so a wasm build exposes
+ * only the certificate hashes WebTransport accepts.
+ */
 public protocol MoqClientProtocol: AnyObject, Sendable {
     
     /**
@@ -2750,6 +2757,13 @@ public protocol MoqClientProtocol: AnyObject, Sendable {
     func setTlsSystemRoots(systemRoots: Bool) 
     
 }
+/**
+ * Builds a [`MoqSession`]: configure it, then [`connect`](Self::connect).
+ *
+ * The configuration differs by target, because the transport does. Native builds expose
+ * the QUIC socket and TLS trust store; the browser owns both, so a wasm build exposes
+ * only the certificate hashes WebTransport accepts.
+ */
 open class MoqClient: MoqClientProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
 
@@ -9125,17 +9139,25 @@ public struct MoqVideo: Equatable, Hashable {
     public var coded: MoqDimensions?
     public var displayAspect: MoqDimensions?
     public var bitrate: UInt64?
+    /**
+     * Whether the publisher recommends temporarily avoiding this rendition.
+     */
+    public var stalled: Bool
     public var framerate: Double?
     public var container: MoqContainer
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(codec: String, description: Data?, coded: MoqDimensions?, displayAspect: MoqDimensions?, bitrate: UInt64?, framerate: Double?, container: MoqContainer) {
+    public init(codec: String, description: Data?, coded: MoqDimensions?, displayAspect: MoqDimensions?, bitrate: UInt64?, 
+        /**
+         * Whether the publisher recommends temporarily avoiding this rendition.
+         */stalled: Bool = false, framerate: Double?, container: MoqContainer) {
         self.codec = codec
         self.description = description
         self.coded = coded
         self.displayAspect = displayAspect
         self.bitrate = bitrate
+        self.stalled = stalled
         self.framerate = framerate
         self.container = container
     }
@@ -9161,6 +9183,7 @@ public struct FfiConverterTypeMoqVideo: FfiConverterRustBuffer {
                 coded: FfiConverterOptionTypeMoqDimensions.read(from: &buf), 
                 displayAspect: FfiConverterOptionTypeMoqDimensions.read(from: &buf), 
                 bitrate: FfiConverterOptionUInt64.read(from: &buf), 
+                stalled: FfiConverterBool.read(from: &buf), 
                 framerate: FfiConverterOptionDouble.read(from: &buf), 
                 container: FfiConverterTypeMoqContainer.read(from: &buf)
         )
@@ -9172,6 +9195,7 @@ public struct FfiConverterTypeMoqVideo: FfiConverterRustBuffer {
         FfiConverterOptionTypeMoqDimensions.write(value.coded, into: &buf)
         FfiConverterOptionTypeMoqDimensions.write(value.displayAspect, into: &buf)
         FfiConverterOptionUInt64.write(value.bitrate, into: &buf)
+        FfiConverterBool.write(value.stalled, into: &buf)
         FfiConverterOptionDouble.write(value.framerate, into: &buf)
         FfiConverterTypeMoqContainer.write(value.container, into: &buf)
     }

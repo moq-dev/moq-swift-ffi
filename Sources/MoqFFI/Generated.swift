@@ -39,6 +39,52 @@ fileprivate extension ForeignBytes {
     init(bufferPointer: UnsafeBufferPointer<UInt8>) {
         self.init(len: Int32(bufferPointer.count), data: bufferPointer.baseAddress)
     }
+
+    init(rawBufferPointer: UnsafeRawBufferPointer) {
+        self.init(
+            len: Int32(rawBufferPointer.count),
+            data: rawBufferPointer.baseAddress?.assumingMemoryBound(to: UInt8.self)
+        )
+    }
+}
+
+// Converter for `&[u8]` / `[ByRef] bytes` arguments.
+//
+// Conforms to `FfiConverter` so the compiler enforces the full converter
+// method set. Only the scope-bound `lower(_:_body:)` overload is sound —
+// zero-copy byte buffers only flow foreign -> Rust, and only in argument
+// position. The four protocol-witness methods (`lift`, `lower`, `read`,
+// `write`) `fatalError` at runtime if anyone reaches them.
+//
+// The scope-bound `lower` takes a closure because the `ForeignBytes`
+// pointer is only guaranteed valid for the duration of
+// `Data.withUnsafeBytes`. Callers must run the full FFI call inside
+// the closure body.
+fileprivate enum FfiConverterByRefBytes: FfiConverter {
+    typealias SwiftType = Data
+    typealias FfiType = ForeignBytes
+
+    static func lower<R>(_ value: Data, _ body: (ForeignBytes) throws -> R) rethrows -> R {
+        return try value.withUnsafeBytes { rawBuf in
+            try body(ForeignBytes(rawBufferPointer: rawBuf))
+        }
+    }
+
+    static func lower(_ value: Data) -> ForeignBytes {
+        fatalError("ByRef bytes cannot use the plain lower: returning ForeignBytes escapes the Data.withUnsafeBytes scope. Use the scope-bound lower(_:_body:) overload instead.")
+    }
+
+    static func lift(_ value: ForeignBytes) throws -> Data {
+        fatalError("ByRef bytes cannot be lifted: zero-copy &[u8] only flows foreign->Rust")
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Data {
+        fatalError("ByRef bytes cannot be read from a buffer: zero-copy &[u8] is only supported in argument position, not nested in records/options/etc.")
+    }
+
+    static func write(_ value: Data, into buf: inout [UInt8]) {
+        fatalError("ByRef bytes cannot be written to a buffer: zero-copy &[u8] is only supported in argument position, not nested in records/options/etc.")
+    }
 }
 
 // For every type used in the interface, we provide helper methods for conveniently
@@ -659,8 +705,9 @@ open class MoqAnnounced: MoqAnnouncedProtocol, @unchecked Sendable {
      * Cancel all current and future `next()` calls.
      */
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqannounced_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -675,8 +722,7 @@ open func next()async throws  -> MoqAnnouncement?  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqannounced_next(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -821,8 +867,7 @@ open func available()async throws  -> MoqBroadcastConsumer  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqannouncedbroadcast_available(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -837,8 +882,9 @@ open func available()async throws  -> MoqBroadcastConsumer  {
      * Cancel all current and future `available()` calls.
      */
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqannouncedbroadcast_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -970,8 +1016,9 @@ open class MoqAnnouncement: MoqAnnouncementProtocol, @unchecked Sendable {
      */
 open func broadcast() -> MoqBroadcastConsumer  {
     return try!  FfiConverterTypeMoqBroadcastConsumer_lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqannouncement_broadcast(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -981,8 +1028,9 @@ open func broadcast() -> MoqBroadcastConsumer  {
      */
 open func path() -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqannouncement_path(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -1104,8 +1152,9 @@ open class MoqAudioConsumer: MoqAudioConsumerProtocol, @unchecked Sendable {
 
     
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqaudioconsumer_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -1115,8 +1164,7 @@ open func next()async throws  -> MoqAudioFrame?  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqaudioconsumer_next(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -1189,6 +1237,29 @@ public protocol MoqAudioProducerProtocol: AnyObject, Sendable {
     
     func finish() throws 
     
+    /**
+     * Return the name of this audio track.
+     */
+    func name() throws  -> String
+    
+    /**
+     * Re-anchor the timeline to the next frame's timestamp.
+     *
+     * Call this before writing after an idle gap so the gap remains visible in
+     * the audio PTS instead of being compressed out by the running sample count.
+     */
+    func resetEpoch() throws 
+    
+    /**
+     * Wait until this audio track has no active consumers.
+     */
+    func unused() async throws 
+    
+    /**
+     * Wait until this audio track has at least one active consumer.
+     */
+    func used() async throws 
+    
     func write(frame: MoqAudioFrame) throws 
     
 }
@@ -1254,16 +1325,82 @@ open class MoqAudioProducer: MoqAudioProducerProtocol, @unchecked Sendable {
 
     
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqaudioproducer_finish(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
     
+    /**
+     * Return the name of this audio track.
+     */
+open func name()throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqaudioproducer_name(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Re-anchor the timeline to the next frame's timestamp.
+     *
+     * Call this before writing after an idle gap so the gap remains visible in
+     * the audio PTS instead of being compressed out by the running sample count.
+     */
+open func resetEpoch()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqaudioproducer_reset_epoch(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Wait until this audio track has no active consumers.
+     */
+open func unused()async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_moq_ffi_fn_method_moqaudioproducer_unused(
+                        self.uniffiCloneHandle()
+                )
+            },
+            pollFunc: ffi_moq_ffi_rust_future_poll_void,
+            completeFunc: ffi_moq_ffi_rust_future_complete_void,
+            freeFunc: ffi_moq_ffi_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMoqError_lift
+        )
+}
+    
+    /**
+     * Wait until this audio track has at least one active consumer.
+     */
+open func used()async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_moq_ffi_fn_method_moqaudioproducer_used(
+                        self.uniffiCloneHandle()
+                )
+            },
+            pollFunc: ffi_moq_ffi_rust_future_poll_void,
+            completeFunc: ffi_moq_ffi_rust_future_complete_void,
+            freeFunc: ffi_moq_ffi_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMoqError_lift
+        )
+}
+    
 open func write(frame: MoqAudioFrame)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqaudioproducer_write(
             self.uniffiCloneHandle(),
-        FfiConverterTypeMoqAudioFrame_lower(frame),$0
+        FfiConverterTypeMoqAudioFrame_lower(frame),uniffiCallStatus
     )
 }
 }
@@ -1324,7 +1461,7 @@ public protocol MoqBroadcastConsumerProtocol: AnyObject, Sendable {
      * Subscribe to an audio track. `catalog_audio_config` comes from
      * the catalog (see
      * [`MoqCatalogConsumer::next`](crate::consumer::MoqCatalogConsumer::next));
-     * the codec is inferred from it. Only Opus is currently supported.
+     * the codec is inferred from it. Only Opus and AAC-LC are supported.
      */
     func subscribeAudio(name: String, catalogAudio: MoqAudio, output: MoqAudioDecoderOutput) async throws  -> MoqAudioConsumer
     
@@ -1453,15 +1590,14 @@ open class MoqBroadcastConsumer: MoqBroadcastConsumerProtocol, @unchecked Sendab
      * Subscribe to an audio track. `catalog_audio_config` comes from
      * the catalog (see
      * [`MoqCatalogConsumer::next`](crate::consumer::MoqCatalogConsumer::next));
-     * the codec is inferred from it. Only Opus is currently supported.
+     * the codec is inferred from it. Only Opus and AAC-LC are supported.
      */
 open func subscribeAudio(name: String, catalogAudio: MoqAudio, output: MoqAudioDecoderOutput)async throws  -> MoqAudioConsumer  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqbroadcastconsumer_subscribe_audio(
-                    self.uniffiCloneHandle(),
-                    FfiConverterString.lower(name),FfiConverterTypeMoqAudio_lower(catalogAudio),FfiConverterTypeMoqAudioDecoderOutput_lower(output)
+                        self.uniffiCloneHandle(),FfiConverterString.lower(name),FfiConverterTypeMoqAudio_lower(catalogAudio),FfiConverterTypeMoqAudioDecoderOutput_lower(output)
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -1484,8 +1620,7 @@ open func fetchGroup(name: String, sequence: UInt64, options: MoqFetchGroupOptio
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqbroadcastconsumer_fetch_group(
-                    self.uniffiCloneHandle(),
-                    FfiConverterString.lower(name),FfiConverterUInt64.lower(sequence),FfiConverterOptionTypeMoqFetchGroupOptions.lower(options)
+                        self.uniffiCloneHandle(),FfiConverterString.lower(name),FfiConverterUInt64.lower(sequence),FfiConverterOptionTypeMoqFetchGroupOptions.lower(options)
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -1508,8 +1643,7 @@ open func fetchMediaGroup(name: String, sequence: UInt64, container: MoqContaine
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqbroadcastconsumer_fetch_media_group(
-                    self.uniffiCloneHandle(),
-                    FfiConverterString.lower(name),FfiConverterUInt64.lower(sequence),FfiConverterTypeMoqContainer_lower(container),FfiConverterOptionTypeMoqFetchGroupOptions.lower(options)
+                        self.uniffiCloneHandle(),FfiConverterString.lower(name),FfiConverterUInt64.lower(sequence),FfiConverterTypeMoqContainer_lower(container),FfiConverterOptionTypeMoqFetchGroupOptions.lower(options)
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -1525,8 +1659,9 @@ open func fetchMediaGroup(name: String, sequence: UInt64, container: MoqContaine
      */
 open func route() -> MoqRoute  {
     return try!  FfiConverterTypeMoqRoute_lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastconsumer_route(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -1539,8 +1674,9 @@ open func route() -> MoqRoute  {
      */
 open func routeUpdates() -> MoqRouteWatch  {
     return try!  FfiConverterTypeMoqRouteWatch_lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastconsumer_route_updates(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -1553,8 +1689,7 @@ open func subscribeCatalog()async throws  -> MoqCatalogConsumer  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqbroadcastconsumer_subscribe_catalog(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -1579,8 +1714,7 @@ open func subscribeMedia(name: String, container: MoqContainer, subscription: Mo
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqbroadcastconsumer_subscribe_media(
-                    self.uniffiCloneHandle(),
-                    FfiConverterString.lower(name),FfiConverterTypeMoqContainer_lower(container),FfiConverterOptionTypeMoqSubscription.lower(subscription)
+                        self.uniffiCloneHandle(),FfiConverterString.lower(name),FfiConverterTypeMoqContainer_lower(container),FfiConverterOptionTypeMoqSubscription.lower(subscription)
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -1602,8 +1736,7 @@ open func subscribeTrack(name: String, subscription: MoqSubscription?)async thro
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqbroadcastconsumer_subscribe_track(
-                    self.uniffiCloneHandle(),
-                    FfiConverterString.lower(name),FfiConverterOptionTypeMoqSubscription.lower(subscription)
+                        self.uniffiCloneHandle(),FfiConverterString.lower(name),FfiConverterOptionTypeMoqSubscription.lower(subscription)
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -1624,8 +1757,7 @@ open func subscribeJsonSnapshot(name: String, config: MoqJsonSnapshotConfig)asyn
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqbroadcastconsumer_subscribe_json_snapshot(
-                    self.uniffiCloneHandle(),
-                    FfiConverterString.lower(name),FfiConverterTypeMoqJsonSnapshotConfig_lower(config)
+                        self.uniffiCloneHandle(),FfiConverterString.lower(name),FfiConverterTypeMoqJsonSnapshotConfig_lower(config)
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -1644,8 +1776,7 @@ open func subscribeJsonStream(name: String, config: MoqJsonStreamConfig)async th
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqbroadcastconsumer_subscribe_json_stream(
-                    self.uniffiCloneHandle(),
-                    FfiConverterString.lower(name),FfiConverterTypeMoqJsonStreamConfig_lower(config)
+                        self.uniffiCloneHandle(),FfiConverterString.lower(name),FfiConverterTypeMoqJsonStreamConfig_lower(config)
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -1783,8 +1914,9 @@ open class MoqBroadcastDynamic: MoqBroadcastDynamicProtocol, @unchecked Sendable
      * Cancel all current and future `requested_track()` calls.
      */
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastdynamic_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -1804,8 +1936,7 @@ open func requestedTrack()async throws  -> MoqTrackRequest  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqbroadcastdynamic_requested_track(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -1993,10 +2124,10 @@ public protocol MoqBroadcastProducerProtocol: AnyObject, Sendable {
      * it.
      *
      * The encoder opens here, so an unsupported codec, resolution, or backend
-     * fails now rather than on the first frame. The track is named after the
-     * codec (`.avc3` / `.hev1`) and its catalog rendition is published
-     * immediately, read out of the encoder rather than guessed, so a subscriber
-     * can find the track before a frame is written to it.
+     * fails now rather than on the first frame. [`MoqVideoEncoderOutput::track`]
+     * chooses the track name; `None` derives one from the codec. The catalog
+     * rendition is published immediately so a subscriber can discover the track
+     * before a frame is written to it.
      */
     func publishVideo(input: MoqVideoEncoderInput, output: MoqVideoEncoderOutput) throws  -> MoqVideoProducer
     
@@ -2050,7 +2181,8 @@ open class MoqBroadcastProducer: MoqBroadcastProducerProtocol, @unchecked Sendab
 public convenience init()throws  {
     let handle =
         try rustCallWithError(FfiConverterTypeMoqError_lift) {
-    uniffi_moq_ffi_fn_constructor_moqbroadcastproducer_new($0
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_constructor_moqbroadcastproducer_new(uniffiCallStatus
     )
 }
     self.init(unsafeFromHandle: handle)
@@ -2075,11 +2207,12 @@ public convenience init()throws  {
      */
 open func publishAudio(name: String, input: MoqAudioEncoderInput, output: MoqAudioEncoderOutput)throws  -> MoqAudioProducer  {
     return try  FfiConverterTypeMoqAudioProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_audio(
             self.uniffiCloneHandle(),
         FfiConverterString.lower(name),
         FfiConverterTypeMoqAudioEncoderInput_lower(input),
-        FfiConverterTypeMoqAudioEncoderOutput_lower(output),$0
+        FfiConverterTypeMoqAudioEncoderOutput_lower(output),uniffiCallStatus
     )
 })
 }
@@ -2092,10 +2225,11 @@ open func publishAudio(name: String, input: MoqAudioEncoderInput, output: MoqAud
      */
 open func publishJsonSnapshot(name: String, config: MoqJsonSnapshotConfig)throws  -> MoqJsonSnapshotProducer  {
     return try  FfiConverterTypeMoqJsonSnapshotProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_json_snapshot(
             self.uniffiCloneHandle(),
         FfiConverterString.lower(name),
-        FfiConverterTypeMoqJsonSnapshotConfig_lower(config),$0
+        FfiConverterTypeMoqJsonSnapshotConfig_lower(config),uniffiCallStatus
     )
 })
 }
@@ -2105,10 +2239,11 @@ open func publishJsonSnapshot(name: String, config: MoqJsonSnapshotConfig)throws
      */
 open func publishJsonStream(name: String, config: MoqJsonStreamConfig)throws  -> MoqJsonStreamProducer  {
     return try  FfiConverterTypeMoqJsonStreamProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_json_stream(
             self.uniffiCloneHandle(),
         FfiConverterString.lower(name),
-        FfiConverterTypeMoqJsonStreamConfig_lower(config),$0
+        FfiConverterTypeMoqJsonStreamConfig_lower(config),uniffiCallStatus
     )
 })
 }
@@ -2118,8 +2253,9 @@ open func publishJsonStream(name: String, config: MoqJsonStreamConfig)throws  ->
      */
 open func consume()throws  -> MoqBroadcastConsumer  {
     return try  FfiConverterTypeMoqBroadcastConsumer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_consume(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -2132,8 +2268,9 @@ open func consume()throws  -> MoqBroadcastConsumer  {
      */
 open func dynamic()throws  -> MoqBroadcastDynamic  {
     return try  FfiConverterTypeMoqBroadcastDynamic_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_dynamic(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -2143,8 +2280,9 @@ open func dynamic()throws  -> MoqBroadcastDynamic  {
      * broadcast so subscribers see a normal end rather than `Error::Dropped`.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_finish(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -2158,9 +2296,10 @@ open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift)
      */
 open func publishMedia(`init`: MoqInit)throws  -> MoqMediaProducer  {
     return try  FfiConverterTypeMoqMediaProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_media(
             self.uniffiCloneHandle(),
-        FfiConverterTypeMoqInit_lower(`init`),$0
+        FfiConverterTypeMoqInit_lower(`init`),uniffiCallStatus
     )
 })
 }
@@ -2175,10 +2314,11 @@ open func publishMedia(`init`: MoqInit)throws  -> MoqMediaProducer  {
      */
 open func publishMediaOnTrack(request: MoqTrackRequest, `init`: MoqInit)throws  -> MoqMediaProducer  {
     return try  FfiConverterTypeMoqMediaProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_media_on_track(
             self.uniffiCloneHandle(),
         FfiConverterTypeMoqTrackRequest_lower(request),
-        FfiConverterTypeMoqInit_lower(`init`),$0
+        FfiConverterTypeMoqInit_lower(`init`),uniffiCallStatus
     )
 })
 }
@@ -2194,9 +2334,10 @@ open func publishMediaOnTrack(request: MoqTrackRequest, `init`: MoqInit)throws  
      */
 open func publishMediaStream(`init`: MoqInit)throws  -> MoqMediaStreamProducer  {
     return try  FfiConverterTypeMoqMediaStreamProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_media_stream(
             self.uniffiCloneHandle(),
-        FfiConverterTypeMoqInit_lower(`init`),$0
+        FfiConverterTypeMoqInit_lower(`init`),uniffiCallStatus
     )
 })
 }
@@ -2210,10 +2351,11 @@ open func publishMediaStream(`init`: MoqInit)throws  -> MoqMediaStreamProducer  
      */
 open func publishTrack(name: String, info: MoqTrackInfo?)throws  -> MoqTrackProducer  {
     return try  FfiConverterTypeMoqTrackProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_track(
             self.uniffiCloneHandle(),
         FfiConverterString.lower(name),
-        FfiConverterOptionTypeMoqTrackInfo.lower(info),$0
+        FfiConverterOptionTypeMoqTrackInfo.lower(info),uniffiCallStatus
     )
 })
 }
@@ -2224,9 +2366,10 @@ open func publishTrack(name: String, info: MoqTrackInfo?)throws  -> MoqTrackProd
      * Republishes the catalog if the section existed; a no-op otherwise.
      */
 open func removeCatalogSection(name: String)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_remove_catalog_section(
             self.uniffiCloneHandle(),
-        FfiConverterString.lower(name),$0
+        FfiConverterString.lower(name),uniffiCallStatus
     )
 }
 }
@@ -2239,9 +2382,10 @@ open func removeCatalogSection(name: String)throws   {try rustCallWithError(FfiC
      * how a publisher goes on and off the air without tearing down the broadcast.
      */
 open func setAnnounce(announce: Bool)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_set_announce(
             self.uniffiCloneHandle(),
-        FfiConverterBool.lower(announce),$0
+        FfiConverterBool.lower(announce),uniffiCallStatus
     )
 }
 }
@@ -2255,10 +2399,11 @@ open func setAnnounce(announce: Bool)throws   {try rustCallWithError(FfiConverte
      * republished on the catalog track immediately.
      */
 open func setCatalogSection(name: String, json: String)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_set_catalog_section(
             self.uniffiCloneHandle(),
         FfiConverterString.lower(name),
-        FfiConverterString.lower(json),$0
+        FfiConverterString.lower(json),uniffiCallStatus
     )
 }
 }
@@ -2271,9 +2416,10 @@ open func setCatalogSection(name: String, json: String)throws   {try rustCallWit
      * `MoqBroadcastConsumer::route_updates` and sessions forward it downstream.
      */
 open func setRoute(route: MoqRoute)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_set_route(
             self.uniffiCloneHandle(),
-        FfiConverterTypeMoqRoute_lower(route),$0
+        FfiConverterTypeMoqRoute_lower(route),uniffiCallStatus
     )
 }
 }
@@ -2284,9 +2430,10 @@ open func setRoute(route: MoqRoute)throws   {try rustCallWithError(FfiConverterT
      * Rotation is clockwise and normalized to the nearest quarter turn. An absent field is removed from the next catalog update.
      */
 open func setVideoProperties(properties: MoqVideoProperties)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_set_video_properties(
             self.uniffiCloneHandle(),
-        FfiConverterTypeMoqVideoProperties_lower(properties),$0
+        FfiConverterTypeMoqVideoProperties_lower(properties),uniffiCallStatus
     )
 }
 }
@@ -2296,17 +2443,18 @@ open func setVideoProperties(properties: MoqVideoProperties)throws   {try rustCa
      * it.
      *
      * The encoder opens here, so an unsupported codec, resolution, or backend
-     * fails now rather than on the first frame. The track is named after the
-     * codec (`.avc3` / `.hev1`) and its catalog rendition is published
-     * immediately, read out of the encoder rather than guessed, so a subscriber
-     * can find the track before a frame is written to it.
+     * fails now rather than on the first frame. [`MoqVideoEncoderOutput::track`]
+     * chooses the track name; `None` derives one from the codec. The catalog
+     * rendition is published immediately so a subscriber can discover the track
+     * before a frame is written to it.
      */
 open func publishVideo(input: MoqVideoEncoderInput, output: MoqVideoEncoderOutput)throws  -> MoqVideoProducer  {
     return try  FfiConverterTypeMoqVideoProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_video(
             self.uniffiCloneHandle(),
         FfiConverterTypeMoqVideoEncoderInput_lower(input),
-        FfiConverterTypeMoqVideoEncoderOutput_lower(output),$0
+        FfiConverterTypeMoqVideoEncoderOutput_lower(output),uniffiCallStatus
     )
 })
 }
@@ -2361,6 +2509,9 @@ public func FfiConverterTypeMoqBroadcastProducer_lower(_ value: MoqBroadcastProd
 
 
 
+/**
+ * A pending dynamic broadcast request that must be accepted or aborted.
+ */
 public protocol MoqBroadcastRequestProtocol: AnyObject, Sendable {
     
     /**
@@ -2379,6 +2530,9 @@ public protocol MoqBroadcastRequestProtocol: AnyObject, Sendable {
     func path() throws  -> String
     
 }
+/**
+ * A pending dynamic broadcast request that must be accepted or aborted.
+ */
 open class MoqBroadcastRequest: MoqBroadcastRequestProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
 
@@ -2436,9 +2590,10 @@ open class MoqBroadcastRequest: MoqBroadcastRequestProtocol, @unchecked Sendable
      * Abort the request with an application error code.
      */
 open func abort(errorCode: UInt16)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastrequest_abort(
             self.uniffiCloneHandle(),
-        FfiConverterUInt16.lower(errorCode),$0
+        FfiConverterUInt16.lower(errorCode),uniffiCallStatus
     )
 }
 }
@@ -2447,9 +2602,10 @@ open func abort(errorCode: UInt16)throws   {try rustCallWithError(FfiConverterTy
      * Accept the request with an unannounced broadcast.
      */
 open func accept(broadcast: MoqBroadcastProducer)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastrequest_accept(
             self.uniffiCloneHandle(),
-        FfiConverterTypeMoqBroadcastProducer_lower(broadcast),$0
+        FfiConverterTypeMoqBroadcastProducer_lower(broadcast),uniffiCallStatus
     )
 }
 }
@@ -2459,8 +2615,9 @@ open func accept(broadcast: MoqBroadcastProducer)throws   {try rustCallWithError
      */
 open func path()throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqbroadcastrequest_path(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -2585,8 +2742,9 @@ open class MoqCatalogConsumer: MoqCatalogConsumerProtocol, @unchecked Sendable {
      * Cancel all current and future `next()` calls.
      */
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqcatalogconsumer_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -2599,8 +2757,7 @@ open func next()async throws  -> MoqCatalog?  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqcatalogconsumer_next(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -2809,7 +2966,8 @@ open class MoqClient: MoqClientProtocol, @unchecked Sendable {
 public convenience init() {
     let handle =
         try! rustCall() {
-    uniffi_moq_ffi_fn_constructor_moqclient_new($0
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_constructor_moqclient_new(uniffiCallStatus
     )
 }
     self.init(unsafeFromHandle: handle)
@@ -2831,8 +2989,9 @@ public convenience init() {
      * Cancel all current and future `connect()` calls.
      */
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -2854,8 +3013,7 @@ open func connect(url: String)async throws  -> MoqSession  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqclient_connect(
-                    self.uniffiCloneHandle(),
-                    FfiConverterString.lower(url)
+                        self.uniffiCloneHandle(),FfiConverterString.lower(url)
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -2872,9 +3030,10 @@ open func connect(url: String)async throws  -> MoqSession  {
      * Returns an error if the address cannot be parsed.
      */
 open func setBind(addr: String)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_bind(
             self.uniffiCloneHandle(),
-        FfiConverterString.lower(addr),$0
+        FfiConverterString.lower(addr),uniffiCallStatus
     )
 }
 }
@@ -2883,9 +3042,10 @@ open func setBind(addr: String)throws   {try rustCallWithError(FfiConverterTypeM
      * Set the origin to consume remote broadcasts from the remote.
      */
 open func setConsume(origin: MoqOriginProducer?)  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_consume(
             self.uniffiCloneHandle(),
-        FfiConverterOptionTypeMoqOriginProducer.lower(origin),$0
+        FfiConverterOptionTypeMoqOriginProducer.lower(origin),uniffiCallStatus
     )
 }
 }
@@ -2894,9 +3054,10 @@ open func setConsume(origin: MoqOriginProducer?)  {try! rustCall() {
      * Set the origin to publish local broadcasts to the remote.
      */
 open func setPublish(origin: MoqOriginProducer?)  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_publish(
             self.uniffiCloneHandle(),
-        FfiConverterOptionTypeMoqOriginProducer.lower(origin),$0
+        FfiConverterOptionTypeMoqOriginProducer.lower(origin),uniffiCallStatus
     )
 }
 }
@@ -2909,9 +3070,10 @@ open func setPublish(origin: MoqOriginProducer?)  {try! rustCall() {
      * Pass `None` to clear a previously set path.
      */
 open func setTlsCert(path: String?)  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_tls_cert(
             self.uniffiCloneHandle(),
-        FfiConverterOptionString.lower(path),$0
+        FfiConverterOptionString.lower(path),uniffiCallStatus
     )
 }
 }
@@ -2920,9 +3082,10 @@ open func setTlsCert(path: String?)  {try! rustCall() {
      * Disable TLS certificate verification (for development only).
      */
 open func setTlsDisableVerify(disable: Bool)  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_tls_disable_verify(
             self.uniffiCloneHandle(),
-        FfiConverterBool.lower(disable),$0
+        FfiConverterBool.lower(disable),uniffiCallStatus
     )
 }
 }
@@ -2936,9 +3099,10 @@ open func setTlsDisableVerify(disable: Bool)  {try! rustCall() {
      * any pinned fingerprints.
      */
 open func setTlsFingerprints(fingerprints: [String])  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_tls_fingerprints(
             self.uniffiCloneHandle(),
-        FfiConverterSequenceString.lower(fingerprints),$0
+        FfiConverterSequenceString.lower(fingerprints),uniffiCallStatus
     )
 }
 }
@@ -2951,9 +3115,10 @@ open func setTlsFingerprints(fingerprints: [String])  {try! rustCall() {
      * Pass `None` to clear a previously set path.
      */
 open func setTlsKey(path: String?)  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_tls_key(
             self.uniffiCloneHandle(),
-        FfiConverterOptionString.lower(path),$0
+        FfiConverterOptionString.lower(path),uniffiCallStatus
     )
 }
 }
@@ -2965,9 +3130,10 @@ open func setTlsKey(path: String?)  {try! rustCall() {
      * default behavior of using the platform's native root store.
      */
 open func setTlsRoots(paths: [String])  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_tls_roots(
             self.uniffiCloneHandle(),
-        FfiConverterSequenceString.lower(paths),$0
+        FfiConverterSequenceString.lower(paths),uniffiCallStatus
     )
 }
 }
@@ -2980,9 +3146,10 @@ open func setTlsRoots(paths: [String])  {try! rustCall() {
      * `set_tls_roots`, or `false` to trust only custom roots.
      */
 open func setTlsSystemRoots(systemRoots: Bool)  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_tls_system_roots(
             self.uniffiCloneHandle(),
-        FfiConverterBool.lower(systemRoots),$0
+        FfiConverterBool.lower(systemRoots),uniffiCallStatus
     )
 }
 }
@@ -3108,8 +3275,9 @@ open class MoqGroupConsumer: MoqGroupConsumerProtocol, @unchecked Sendable {
 
     
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqgroupconsumer_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -3124,8 +3292,7 @@ open func readFrame()async throws  -> MoqFrame?  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqgroupconsumer_read_frame(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -3141,8 +3308,9 @@ open func readFrame()async throws  -> MoqFrame?  {
      */
 open func sequence() -> UInt64  {
     return try!  FfiConverterUInt64.lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqgroupconsumer_sequence(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -3285,9 +3453,10 @@ open class MoqGroupProducer: MoqGroupProducerProtocol, @unchecked Sendable {
      * Abort this group with an application error code.
      */
 open func abort(errorCode: UInt16)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqgroupproducer_abort(
             self.uniffiCloneHandle(),
-        FfiConverterUInt16.lower(errorCode),$0
+        FfiConverterUInt16.lower(errorCode),uniffiCallStatus
     )
 }
 }
@@ -3297,8 +3466,9 @@ open func abort(errorCode: UInt16)throws   {try rustCallWithError(FfiConverterTy
      */
 open func consume()throws  -> MoqGroupConsumer  {
     return try  FfiConverterTypeMoqGroupConsumer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqgroupproducer_consume(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -3307,8 +3477,9 @@ open func consume()throws  -> MoqGroupConsumer  {
      * Mark the group as complete. No more frames can be written.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqgroupproducer_finish(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -3318,8 +3489,9 @@ open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift)
      */
 open func sequence() -> UInt64  {
     return try!  FfiConverterUInt64.lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqgroupproducer_sequence(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -3331,9 +3503,10 @@ open func sequence() -> UInt64  {
      * the timestamp during conversion.
      */
 open func writeFrame(frame: MoqFrame)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqgroupproducer_write_frame(
             self.uniffiCloneHandle(),
-        FfiConverterTypeMoqFrame_lower(frame),$0
+        FfiConverterTypeMoqFrame_lower(frame),uniffiCallStatus
     )
 }
 }
@@ -3474,9 +3647,10 @@ open class MoqGroupRequest: MoqGroupRequestProtocol, @unchecked Sendable {
      * Reject the fetch with an application error code.
      */
 open func abort(errorCode: UInt16)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqgrouprequest_abort(
             self.uniffiCloneHandle(),
-        FfiConverterUInt16.lower(errorCode),$0
+        FfiConverterUInt16.lower(errorCode),uniffiCallStatus
     )
 }
 }
@@ -3486,8 +3660,9 @@ open func abort(errorCode: UInt16)throws   {try rustCallWithError(FfiConverterTy
      */
 open func accept()throws  -> MoqGroupProducer  {
     return try  FfiConverterTypeMoqGroupProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqgrouprequest_accept(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -3497,8 +3672,9 @@ open func accept()throws  -> MoqGroupProducer  {
      */
 open func priority() -> UInt8  {
     return try!  FfiConverterUInt8.lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqgrouprequest_priority(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -3508,8 +3684,9 @@ open func priority() -> UInt8  {
      */
 open func sequence() -> UInt64  {
     return try!  FfiConverterUInt64.lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqgrouprequest_sequence(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -3642,8 +3819,9 @@ open class MoqJsonSnapshotConsumer: MoqJsonSnapshotConsumerProtocol, @unchecked 
      * Cancel all current and future `next()` calls.
      */
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqjsonsnapshotconsumer_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -3658,8 +3836,7 @@ open func next()async throws  -> String?  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqjsonsnapshotconsumer_next(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -3797,8 +3974,9 @@ open class MoqJsonSnapshotProducer: MoqJsonSnapshotProducerProtocol, @unchecked 
      * Finish the track, closing any open group.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqjsonsnapshotproducer_finish(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -3808,9 +3986,10 @@ open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift)
      * document. A no-op if unchanged from the previous update.
      */
 open func update(value: String)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqjsonsnapshotproducer_update(
             self.uniffiCloneHandle(),
-        FfiConverterString.lower(value),$0
+        FfiConverterString.lower(value),uniffiCallStatus
     )
 }
 }
@@ -3941,8 +4120,9 @@ open class MoqJsonStreamConsumer: MoqJsonStreamConsumerProtocol, @unchecked Send
      * Cancel all current and future `next()` calls.
      */
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqjsonstreamconsumer_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -3955,8 +4135,7 @@ open func next()async throws  -> String?  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqjsonstreamconsumer_next(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -4093,9 +4272,10 @@ open class MoqJsonStreamProducer: MoqJsonStreamProducerProtocol, @unchecked Send
      * Append one record to the log. `value` is a JSON document.
      */
 open func append(value: String)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqjsonstreamproducer_append(
             self.uniffiCloneHandle(),
-        FfiConverterString.lower(value),$0
+        FfiConverterString.lower(value),uniffiCallStatus
     )
 }
 }
@@ -4104,8 +4284,9 @@ open func append(value: String)throws   {try rustCallWithError(FfiConverterTypeM
      * Finish the track, closing the group.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqjsonstreamproducer_finish(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -4230,8 +4411,9 @@ open class MoqMediaConsumer: MoqMediaConsumerProtocol, @unchecked Sendable {
      * Cancel all current and future `next()` calls.
      */
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqmediaconsumer_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -4244,8 +4426,7 @@ open func next()async throws  -> MoqMediaFrame?  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqmediaconsumer_next(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -4389,8 +4570,9 @@ open class MoqMediaGroupConsumer: MoqMediaGroupConsumerProtocol, @unchecked Send
      * Cancel all current and future `next()` calls.
      */
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqmediagroupconsumer_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -4403,8 +4585,7 @@ open func next()async throws  -> MoqMediaFrame?  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqmediagroupconsumer_next(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -4420,8 +4601,9 @@ open func next()async throws  -> MoqMediaFrame?  {
      */
 open func sequence() -> UInt64  {
     return try!  FfiConverterUInt64.lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqmediagroupconsumer_sequence(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -4570,8 +4752,9 @@ open class MoqMediaProducer: MoqMediaProducerProtocol, @unchecked Sendable {
      * Finish this media track and finalize encoding.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqmediaproducer_finish(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -4583,8 +4766,9 @@ open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift)
      */
 open func name()throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqmediaproducer_name(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -4599,8 +4783,7 @@ open func unused()async throws   {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqmediaproducer_unused(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_void,
@@ -4621,8 +4804,7 @@ open func used()async throws   {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqmediaproducer_used(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_void,
@@ -4640,9 +4822,10 @@ open func used()async throws   {
      * the payload and its timestamp.
      */
 open func writeFrame(frame: MoqFrame)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqmediaproducer_write_frame(
             self.uniffiCloneHandle(),
-        FfiConverterTypeMoqFrame_lower(frame),$0
+        FfiConverterTypeMoqFrame_lower(frame),uniffiCallStatus
     )
 }
 }
@@ -4777,8 +4960,9 @@ open class MoqMediaStreamProducer: MoqMediaStreamProducerProtocol, @unchecked Se
      * last frame at EOF) is not emitted. This matches moq-cli's stdin path.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqmediastreamproducer_finish(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -4789,9 +4973,10 @@ open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift)
      * next call, so callers can write arbitrary chunks.
      */
 open func write(payload: Data)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqmediastreamproducer_write(
             self.uniffiCloneHandle(),
-        FfiConverterData.lower(payload),$0
+        FfiConverterData.lower(payload),uniffiCallStatus
     )
 }
 }
@@ -4864,11 +5049,10 @@ public protocol MoqOriginConsumerProtocol: AnyObject, Sendable {
     /**
      * Request a broadcast by path, resolving as soon as it can be served.
      *
-     * Returns the announced broadcast immediately if one exists; otherwise falls back to a
-     * dynamic handler on the origin (if any) and resolves once it serves the broadcast, or
-     * errors if nothing can serve it. Unlike `announced_broadcast`, this does *not* wait
-     * indefinitely for a future announcement: it resolves or fails based on what is
-     * announced now plus any dynamic fallback. Drop the returned future to cancel.
+     * Returns a broadcast already reachable by exact path immediately, whether announced or not;
+     * otherwise falls back to a dynamic handler on the origin (if any) and resolves once it serves
+     * the broadcast, or errors if nothing can serve it. Unlike `announced_broadcast`, this does
+     * *not* wait indefinitely for a future announcement. Drop the returned future to cancel.
      *
      * Calling this straight after connecting therefore races the session's announcements
      * and can report a live broadcast as unroutable. Await `announced_broadcast` first.
@@ -4934,9 +5118,10 @@ open class MoqOriginConsumer: MoqOriginConsumerProtocol, @unchecked Sendable {
      */
 open func announced(prefix: String)throws  -> MoqAnnounced  {
     return try  FfiConverterTypeMoqAnnounced_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqoriginconsumer_announced(
             self.uniffiCloneHandle(),
-        FfiConverterString.lower(prefix),$0
+        FfiConverterString.lower(prefix),uniffiCallStatus
     )
 })
 }
@@ -4949,9 +5134,10 @@ open func announced(prefix: String)throws  -> MoqAnnounced  {
      */
 open func announcedBroadcast(path: String)throws  -> MoqAnnouncedBroadcast  {
     return try  FfiConverterTypeMoqAnnouncedBroadcast_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqoriginconsumer_announced_broadcast(
             self.uniffiCloneHandle(),
-        FfiConverterString.lower(path),$0
+        FfiConverterString.lower(path),uniffiCallStatus
     )
 })
 }
@@ -4959,11 +5145,10 @@ open func announcedBroadcast(path: String)throws  -> MoqAnnouncedBroadcast  {
     /**
      * Request a broadcast by path, resolving as soon as it can be served.
      *
-     * Returns the announced broadcast immediately if one exists; otherwise falls back to a
-     * dynamic handler on the origin (if any) and resolves once it serves the broadcast, or
-     * errors if nothing can serve it. Unlike `announced_broadcast`, this does *not* wait
-     * indefinitely for a future announcement: it resolves or fails based on what is
-     * announced now plus any dynamic fallback. Drop the returned future to cancel.
+     * Returns a broadcast already reachable by exact path immediately, whether announced or not;
+     * otherwise falls back to a dynamic handler on the origin (if any) and resolves once it serves
+     * the broadcast, or errors if nothing can serve it. Unlike `announced_broadcast`, this does
+     * *not* wait indefinitely for a future announcement. Drop the returned future to cancel.
      *
      * Calling this straight after connecting therefore races the session's announcements
      * and can report a live broadcast as unroutable. Await `announced_broadcast` first.
@@ -4973,8 +5158,7 @@ open func requestBroadcast(path: String)async throws  -> MoqBroadcastConsumer  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqoriginconsumer_request_broadcast(
-                    self.uniffiCloneHandle(),
-                    FfiConverterString.lower(path)
+                        self.uniffiCloneHandle(),FfiConverterString.lower(path)
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -5035,10 +5219,13 @@ public func FfiConverterTypeMoqOriginConsumer_lower(_ value: MoqOriginConsumer) 
 
 
 
+/**
+ * A dynamic origin handler that serves broadcast requests not resolved by an existing route.
+ */
 public protocol MoqOriginDynamicProtocol: AnyObject, Sendable {
     
     /**
-     * Cancel all current and future `requested_broadcast()` calls.
+     * Stop serving dynamic requests and cancel all current `requested_broadcast()` calls.
      */
     func cancel() 
     
@@ -5051,6 +5238,9 @@ public protocol MoqOriginDynamicProtocol: AnyObject, Sendable {
     func requestedBroadcast() async throws  -> MoqBroadcastRequest
     
 }
+/**
+ * A dynamic origin handler that serves broadcast requests not resolved by an existing route.
+ */
 open class MoqOriginDynamic: MoqOriginDynamicProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
 
@@ -5105,11 +5295,12 @@ open class MoqOriginDynamic: MoqOriginDynamicProtocol, @unchecked Sendable {
 
     
     /**
-     * Cancel all current and future `requested_broadcast()` calls.
+     * Stop serving dynamic requests and cancel all current `requested_broadcast()` calls.
      */
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqorigindynamic_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -5125,8 +5316,7 @@ open func requestedBroadcast()async throws  -> MoqBroadcastRequest  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqorigindynamic_requested_broadcast(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -5262,8 +5452,9 @@ open class MoqOriginProducer: MoqOriginProducerProtocol, @unchecked Sendable {
 public convenience init(options: MoqOriginOptions) {
     let handle =
         try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_constructor_moqoriginproducer_new(
-        FfiConverterTypeMoqOriginOptions_lower(options),$0
+        FfiConverterTypeMoqOriginOptions_lower(options),uniffiCallStatus
     )
 }
     self.init(unsafeFromHandle: handle)
@@ -5286,8 +5477,9 @@ public convenience init(options: MoqOriginOptions) {
      */
 open func consume() -> MoqOriginConsumer  {
     return try!  FfiConverterTypeMoqOriginConsumer_lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqoriginproducer_consume(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -5306,9 +5498,10 @@ open func consume() -> MoqOriginConsumer  {
      */
 open func createBroadcast(path: String)throws  -> MoqBroadcastProducer  {
     return try  FfiConverterTypeMoqBroadcastProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqoriginproducer_create_broadcast(
             self.uniffiCloneHandle(),
-        FfiConverterString.lower(path),$0
+        FfiConverterString.lower(path),uniffiCallStatus
     )
 })
 }
@@ -5321,8 +5514,9 @@ open func createBroadcast(path: String)throws  -> MoqBroadcastProducer  {
      */
 open func dynamic() -> MoqOriginDynamic  {
     return try!  FfiConverterTypeMoqOriginDynamic_lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqoriginproducer_dynamic(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -5500,8 +5694,7 @@ open func accept()async throws  -> MoqSession  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqrequest_accept(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -5516,8 +5709,9 @@ open func accept()async throws  -> MoqSession  {
      * Cancel any in-flight `accept()` or `reject()` call.
      */
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqrequest_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -5527,8 +5721,9 @@ open func cancel()  {try! rustCall() {
      */
 open func path() -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqrequest_path(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -5538,8 +5733,9 @@ open func path() -> String  {
      */
 open func query() -> String?  {
     return try!  FfiConverterOptionString.lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqrequest_query(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -5554,8 +5750,7 @@ open func reject(code: UInt16)async throws   {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqrequest_reject(
-                    self.uniffiCloneHandle(),
-                    FfiConverterUInt16.lower(code)
+                        self.uniffiCloneHandle(),FfiConverterUInt16.lower(code)
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_void,
@@ -5571,9 +5766,10 @@ open func reject(code: UInt16)async throws   {
      * configured consume origin if unset.
      */
 open func setConsume(origin: MoqOriginProducer?)  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqrequest_set_consume(
             self.uniffiCloneHandle(),
-        FfiConverterOptionTypeMoqOriginProducer.lower(origin),$0
+        FfiConverterOptionTypeMoqOriginProducer.lower(origin),uniffiCallStatus
     )
 }
 }
@@ -5583,9 +5779,10 @@ open func setConsume(origin: MoqOriginProducer?)  {try! rustCall() {
      * configured publish origin if unset.
      */
 open func setPublish(origin: MoqOriginProducer?)  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqrequest_set_publish(
             self.uniffiCloneHandle(),
-        FfiConverterOptionTypeMoqOriginProducer.lower(origin),$0
+        FfiConverterOptionTypeMoqOriginProducer.lower(origin),uniffiCallStatus
     )
 }
 }
@@ -5595,8 +5792,9 @@ open func setPublish(origin: MoqOriginProducer?)  {try! rustCall() {
      */
 open func transport() -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqrequest_transport(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -5606,8 +5804,9 @@ open func transport() -> String  {
      */
 open func url() -> String?  {
     return try!  FfiConverterOptionString.lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqrequest_url(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -5740,8 +5939,9 @@ open class MoqRouteWatch: MoqRouteWatchProtocol, @unchecked Sendable {
      * Cancel all current and future `next()` calls.
      */
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqroutewatch_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -5756,8 +5956,7 @@ open func next()async throws  -> MoqRoute?  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqroutewatch_next(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -5934,7 +6133,8 @@ open class MoqServer: MoqServerProtocol, @unchecked Sendable {
 public convenience init() {
     let handle =
         try! rustCall() {
-    uniffi_moq_ffi_fn_constructor_moqserver_new($0
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_constructor_moqserver_new(uniffiCallStatus
     )
 }
     self.init(unsafeFromHandle: handle)
@@ -5962,8 +6162,7 @@ open func accept()async throws  -> MoqRequest?  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqserver_accept(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -5978,8 +6177,9 @@ open func accept()async throws  -> MoqRequest?  {
      * Cancel any in-flight `listen()` or `accept()` call.
      */
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqserver_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -5993,8 +6193,9 @@ open func cancel()  {try! rustCall() {
      */
 open func certFingerprints()throws  -> [String]  {
     return try  FfiConverterSequenceString.lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqserver_cert_fingerprints(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -6008,8 +6209,7 @@ open func listen()async throws  -> String  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqserver_listen(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -6027,9 +6227,10 @@ open func listen()async throws  -> String  {
      * at `listen()` time.
      */
 open func setBind(addr: String)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqserver_set_bind(
             self.uniffiCloneHandle(),
-        FfiConverterString.lower(addr),$0
+        FfiConverterString.lower(addr),uniffiCallStatus
     )
 }
 }
@@ -6038,9 +6239,10 @@ open func setBind(addr: String)throws   {try rustCallWithError(FfiConverterTypeM
      * Set the origin to consume broadcasts from incoming sessions.
      */
 open func setConsume(origin: MoqOriginProducer?)  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqserver_set_consume(
             self.uniffiCloneHandle(),
-        FfiConverterOptionTypeMoqOriginProducer.lower(origin),$0
+        FfiConverterOptionTypeMoqOriginProducer.lower(origin),uniffiCallStatus
     )
 }
 }
@@ -6049,9 +6251,10 @@ open func setConsume(origin: MoqOriginProducer?)  {try! rustCall() {
      * Set the origin to publish broadcasts to incoming sessions.
      */
 open func setPublish(origin: MoqOriginProducer?)  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqserver_set_publish(
             self.uniffiCloneHandle(),
-        FfiConverterOptionTypeMoqOriginProducer.lower(origin),$0
+        FfiConverterOptionTypeMoqOriginProducer.lower(origin),uniffiCallStatus
     )
 }
 }
@@ -6060,9 +6263,10 @@ open func setPublish(origin: MoqOriginProducer?)  {try! rustCall() {
      * Load TLS certificate chains from PEM files on disk.
      */
 open func setTlsCert(paths: [String])  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqserver_set_tls_cert(
             self.uniffiCloneHandle(),
-        FfiConverterSequenceString.lower(paths),$0
+        FfiConverterSequenceString.lower(paths),uniffiCallStatus
     )
 }
 }
@@ -6073,9 +6277,10 @@ open func setTlsCert(paths: [String])  {try! rustCall() {
      * Clients must either pin the certificate fingerprint or disable verification.
      */
 open func setTlsGenerate(hostnames: [String])  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqserver_set_tls_generate(
             self.uniffiCloneHandle(),
-        FfiConverterSequenceString.lower(hostnames),$0
+        FfiConverterSequenceString.lower(hostnames),uniffiCallStatus
     )
 }
 }
@@ -6084,9 +6289,10 @@ open func setTlsGenerate(hostnames: [String])  {try! rustCall() {
      * Load TLS private keys from PEM files on disk.
      */
 open func setTlsKey(paths: [String])  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqserver_set_tls_key(
             self.uniffiCloneHandle(),
-        FfiConverterSequenceString.lower(paths),$0
+        FfiConverterSequenceString.lower(paths),uniffiCallStatus
     )
 }
 }
@@ -6246,9 +6452,10 @@ open class MoqSession: MoqSessionProtocol, @unchecked Sendable {
      * Close the session with the given error code.
      */
 open func cancel(code: UInt32)  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqsession_cancel(
             self.uniffiCloneHandle(),
-        FfiConverterUInt32.lower(code),$0
+        FfiConverterUInt32.lower(code),uniffiCallStatus
     )
 }
 }
@@ -6261,8 +6468,7 @@ open func closed()async throws   {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqsession_closed(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_void,
@@ -6281,8 +6487,9 @@ open func closed()async throws   {
      */
 open func consumer() -> MoqOriginConsumer  {
     return try!  FfiConverterTypeMoqOriginConsumer_lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqsession_consumer(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -6295,8 +6502,9 @@ open func consumer() -> MoqOriginConsumer  {
      */
 open func publisher() -> MoqOriginProducer  {
     return try!  FfiConverterTypeMoqOriginProducer_lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqsession_publisher(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -6310,8 +6518,9 @@ open func publisher() -> MoqOriginProducer  {
      * thing per binding.
      */
 open func shutdown()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqsession_shutdown(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -6325,8 +6534,9 @@ open func shutdown()  {try! rustCall() {
      */
 open func stats() -> MoqConnectionStats  {
     return try!  FfiConverterTypeMoqConnectionStats_lift(try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqsession_stats(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -6483,8 +6693,9 @@ open class MoqTrackConsumer: MoqTrackConsumerProtocol, @unchecked Sendable {
 
     
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackconsumer_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -6494,8 +6705,9 @@ open func cancel()  {try! rustCall() {
      */
 open func info()throws  -> MoqTrackInfo  {
     return try  FfiConverterTypeMoqTrackInfo_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackconsumer_info(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -6509,8 +6721,7 @@ open func nextGroup()async throws  -> MoqGroupConsumer?  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqtrackconsumer_next_group(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -6532,8 +6743,7 @@ open func readFrame()async throws  -> MoqFrame?  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqtrackconsumer_read_frame(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -6555,8 +6765,7 @@ open func recvDatagram()async throws  -> MoqDatagram?  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqtrackconsumer_recv_datagram(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -6578,8 +6787,7 @@ open func recvGroup()async throws  -> MoqGroupConsumer?  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqtrackconsumer_recv_group(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
@@ -6597,9 +6805,10 @@ open func recvGroup()async throws  -> MoqGroupConsumer?  {
      * that point.
      */
 open func update(subscription: MoqSubscription)  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackconsumer_update(
             self.uniffiCloneHandle(),
-        FfiConverterTypeMoqSubscription_lower(subscription),$0
+        FfiConverterTypeMoqSubscription_lower(subscription),uniffiCallStatus
     )
 }
 }
@@ -6733,8 +6942,9 @@ open class MoqTrackDynamic: MoqTrackDynamicProtocol, @unchecked Sendable {
      * Cancel all current and future `requested_group()` calls.
      */
 open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackdynamic_cancel(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -6750,8 +6960,7 @@ open func requestedGroup()async throws  -> MoqGroupRequest  {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqtrackdynamic_requested_group(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_u64,
@@ -6954,9 +7163,10 @@ open class MoqTrackProducer: MoqTrackProducerProtocol, @unchecked Sendable {
      * Abort this track with an application error code.
      */
 open func abort(errorCode: UInt16)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackproducer_abort(
             self.uniffiCloneHandle(),
-        FfiConverterUInt16.lower(errorCode),$0
+        FfiConverterUInt16.lower(errorCode),uniffiCallStatus
     )
 }
 }
@@ -6969,9 +7179,10 @@ open func abort(errorCode: UInt16)throws   {try rustCallWithError(FfiConverterTy
      */
 open func appendDatagram(frame: MoqFrame)throws  -> UInt64  {
     return try  FfiConverterUInt64.lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackproducer_append_datagram(
             self.uniffiCloneHandle(),
-        FfiConverterTypeMoqFrame_lower(frame),$0
+        FfiConverterTypeMoqFrame_lower(frame),uniffiCallStatus
     )
 })
 }
@@ -6981,8 +7192,9 @@ open func appendDatagram(frame: MoqFrame)throws  -> UInt64  {
      */
 open func appendGroup()throws  -> MoqGroupProducer  {
     return try  FfiConverterTypeMoqGroupProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackproducer_append_group(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -6995,9 +7207,10 @@ open func appendGroup()throws  -> MoqGroupProducer  {
      */
 open func consume(subscription: MoqSubscription?)throws  -> MoqTrackConsumer  {
     return try  FfiConverterTypeMoqTrackConsumer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackproducer_consume(
             self.uniffiCloneHandle(),
-        FfiConverterOptionTypeMoqSubscription.lower(subscription),$0
+        FfiConverterOptionTypeMoqSubscription.lower(subscription),uniffiCallStatus
     )
 })
 }
@@ -7010,9 +7223,10 @@ open func consume(subscription: MoqSubscription?)throws  -> MoqTrackConsumer  {
      */
 open func createGroup(sequence: UInt64)throws  -> MoqGroupProducer  {
     return try  FfiConverterTypeMoqGroupProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackproducer_create_group(
             self.uniffiCloneHandle(),
-        FfiConverterUInt64.lower(sequence),$0
+        FfiConverterUInt64.lower(sequence),uniffiCallStatus
     )
 })
 }
@@ -7025,8 +7239,9 @@ open func createGroup(sequence: UInt64)throws  -> MoqGroupProducer  {
      */
 open func dynamic()throws  -> MoqTrackDynamic  {
     return try  FfiConverterTypeMoqTrackDynamic_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackproducer_dynamic(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -7038,8 +7253,9 @@ open func dynamic()throws  -> MoqTrackDynamic  {
      * that boundary and only releases the producer.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackproducer_finish(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -7052,9 +7268,10 @@ open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift)
      * call [`finish`](Self::finish) after producing the remaining groups.
      */
 open func finishAt(finalSequence: UInt64)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackproducer_finish_at(
             self.uniffiCloneHandle(),
-        FfiConverterUInt64.lower(finalSequence),$0
+        FfiConverterUInt64.lower(finalSequence),uniffiCallStatus
     )
 }
 }
@@ -7064,8 +7281,9 @@ open func finishAt(finalSequence: UInt64)throws   {try rustCallWithError(FfiConv
      */
 open func name()throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackproducer_name(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -7078,8 +7296,7 @@ open func unused()async throws   {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqtrackproducer_unused(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_void,
@@ -7098,8 +7315,7 @@ open func used()async throws   {
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_moq_ffi_fn_method_moqtrackproducer_used(
-                    self.uniffiCloneHandle()
-                    
+                        self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_void,
@@ -7117,9 +7333,10 @@ open func used()async throws   {
      * the timestamp during conversion.
      */
 open func writeFrame(frame: MoqFrame)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackproducer_write_frame(
             self.uniffiCloneHandle(),
-        FfiConverterTypeMoqFrame_lower(frame),$0
+        FfiConverterTypeMoqFrame_lower(frame),uniffiCallStatus
     )
 }
 }
@@ -7275,9 +7492,10 @@ open class MoqTrackRequest: MoqTrackRequestProtocol, @unchecked Sendable {
      * Reject the request with an application error code, failing the waiting subscriber.
      */
 open func abort(errorCode: UInt16)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackrequest_abort(
             self.uniffiCloneHandle(),
-        FfiConverterUInt16.lower(errorCode),$0
+        FfiConverterUInt16.lower(errorCode),uniffiCallStatus
     )
 }
 }
@@ -7290,9 +7508,10 @@ open func abort(errorCode: UInt16)throws   {try rustCallWithError(FfiConverterTy
      */
 open func accept(info: MoqTrackInfo?)throws  -> MoqTrackProducer  {
     return try  FfiConverterTypeMoqTrackProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackrequest_accept(
             self.uniffiCloneHandle(),
-        FfiConverterOptionTypeMoqTrackInfo.lower(info),$0
+        FfiConverterOptionTypeMoqTrackInfo.lower(info),uniffiCallStatus
     )
 })
 }
@@ -7306,8 +7525,9 @@ open func accept(info: MoqTrackInfo?)throws  -> MoqTrackProducer  {
      */
 open func dynamic()throws  -> MoqTrackDynamic  {
     return try  FfiConverterTypeMoqTrackDynamic_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackrequest_dynamic(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -7317,8 +7537,9 @@ open func dynamic()throws  -> MoqTrackDynamic  {
      */
 open func name()throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackrequest_name(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
 }
@@ -7404,6 +7625,11 @@ public protocol MoqVideoProducerProtocol: AnyObject, Sendable {
     func finish() throws 
     
     /**
+     * Return the name of this video track.
+     */
+    func name() throws  -> String
+    
+    /**
      * Retune the live encoder to `bitrate` bits per second, taking effect from
      * roughly the next frame. No keyframe is forced, so this is cheap enough to
      * drive from a congestion controller.
@@ -7418,6 +7644,16 @@ public protocol MoqVideoProducerProtocol: AnyObject, Sendable {
      * stop publishing.
      */
     func setBitrate(bitrate: UInt64) throws 
+    
+    /**
+     * Wait until this video track has no active consumers.
+     */
+    func unused() async throws 
+    
+    /**
+     * Wait until this video track has at least one active consumer.
+     */
+    func used() async throws 
     
     /**
      * Encode and publish one raw frame.
@@ -7503,8 +7739,9 @@ open class MoqVideoProducer: MoqVideoProducerProtocol, @unchecked Sendable {
      * cuts once, not several times.
      */
 open func cut()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqvideoproducer_cut(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
@@ -7513,10 +7750,23 @@ open func cut()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
      * Flush any frames the codec is still holding and finalize the track.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqvideoproducer_finish(
-            self.uniffiCloneHandle(),$0
+            self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
+}
+    
+    /**
+     * Return the name of this video track.
+     */
+open func name()throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqvideoproducer_name(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
 }
     
     /**
@@ -7534,11 +7784,50 @@ open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift)
      * stop publishing.
      */
 open func setBitrate(bitrate: UInt64)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqvideoproducer_set_bitrate(
             self.uniffiCloneHandle(),
-        FfiConverterUInt64.lower(bitrate),$0
+        FfiConverterUInt64.lower(bitrate),uniffiCallStatus
     )
 }
+}
+    
+    /**
+     * Wait until this video track has no active consumers.
+     */
+open func unused()async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_moq_ffi_fn_method_moqvideoproducer_unused(
+                        self.uniffiCloneHandle()
+                )
+            },
+            pollFunc: ffi_moq_ffi_rust_future_poll_void,
+            completeFunc: ffi_moq_ffi_rust_future_complete_void,
+            freeFunc: ffi_moq_ffi_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMoqError_lift
+        )
+}
+    
+    /**
+     * Wait until this video track has at least one active consumer.
+     */
+open func used()async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_moq_ffi_fn_method_moqvideoproducer_used(
+                        self.uniffiCloneHandle()
+                )
+            },
+            pollFunc: ffi_moq_ffi_rust_future_poll_void,
+            completeFunc: ffi_moq_ffi_rust_future_complete_void,
+            freeFunc: ffi_moq_ffi_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMoqError_lift
+        )
 }
     
     /**
@@ -7548,9 +7837,10 @@ open func setBitrate(bitrate: UInt64)throws   {try rustCallWithError(FfiConverte
      * call that emits nothing on the wire is normal rather than an error.
      */
 open func write(frame: MoqVideoFrame)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqvideoproducer_write(
             self.uniffiCloneHandle(),
-        FfiConverterTypeMoqVideoFrame_lower(frame),$0
+        FfiConverterTypeMoqVideoFrame_lower(frame),uniffiCallStatus
     )
 }
 }
@@ -9310,6 +9600,10 @@ public func FfiConverterTypeMoqVideoEncoderInput_lower(_ value: MoqVideoEncoderI
 public struct MoqVideoEncoderOutput: Equatable, Hashable {
     public var codec: MoqVideoCodec
     /**
+     * Track name. `None` derives a unique name from the codec.
+     */
+    public var track: String?
+    /**
      * Target bitrate in bits per second. `None` derives one from the resolution
      * and framerate.
      */
@@ -9329,6 +9623,9 @@ public struct MoqVideoEncoderOutput: Equatable, Hashable {
     // declare one manually.
     public init(codec: MoqVideoCodec, 
         /**
+         * Track name. `None` derives a unique name from the codec.
+         */track: String? = nil, 
+        /**
          * Target bitrate in bits per second. `None` derives one from the resolution
          * and framerate.
          */bitrate: UInt64? = nil, 
@@ -9341,6 +9638,7 @@ public struct MoqVideoEncoderOutput: Equatable, Hashable {
          * [`MoqVideoEncoderKind::Auto`] unless you need a specific backend.
          */kind: MoqVideoEncoderKind) {
         self.codec = codec
+        self.track = track
         self.bitrate = bitrate
         self.gop = gop
         self.kind = kind
@@ -9363,6 +9661,7 @@ public struct FfiConverterTypeMoqVideoEncoderOutput: FfiConverterRustBuffer {
         return
             try MoqVideoEncoderOutput(
                 codec: FfiConverterTypeMoqVideoCodec.read(from: &buf), 
+                track: FfiConverterOptionString.read(from: &buf), 
                 bitrate: FfiConverterOptionUInt64.read(from: &buf), 
                 gop: FfiConverterOptionUInt32.read(from: &buf), 
                 kind: FfiConverterTypeMoqVideoEncoderKind.read(from: &buf)
@@ -9371,6 +9670,7 @@ public struct FfiConverterTypeMoqVideoEncoderOutput: FfiConverterRustBuffer {
 
     public static func write(_ value: MoqVideoEncoderOutput, into buf: inout [UInt8]) {
         FfiConverterTypeMoqVideoCodec.write(value.codec, into: &buf)
+        FfiConverterOptionString.write(value.track, into: &buf)
         FfiConverterOptionUInt64.write(value.bitrate, into: &buf)
         FfiConverterOptionUInt32.write(value.gop, into: &buf)
         FfiConverterTypeMoqVideoEncoderKind.write(value.kind, into: &buf)
@@ -9649,8 +9949,7 @@ public func FfiConverterTypeMoqVideoProperties_lower(_ value: MoqVideoProperties
     return FfiConverterTypeMoqVideoProperties.lower(value)
 }
 
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 /**
  * Audio codec identifier.
  */
@@ -9712,8 +10011,7 @@ public func FfiConverterTypeMoqAudioCodec_lower(_ value: MoqAudioCodec) -> RustB
 }
 
 
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 /**
  * Raw PCM sample format, mirroring WebCodecs `AudioData.format`.
  *
@@ -9826,8 +10124,7 @@ public func FfiConverterTypeMoqAudioFormat_lower(_ value: MoqAudioFormat) -> Rus
 }
 
 
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 /**
  * How a track's frames are packaged, as advertised in the catalog.
  */
@@ -9919,7 +10216,8 @@ public func FfiConverterTypeMoqContainer_lower(_ value: MoqContainer) -> RustBuf
 /**
  * Error returned by all UniFFI-exported functions.
  */
-public enum MoqError: Swift.Error, Equatable, Hashable, Foundation.LocalizedError {
+public 
+enum MoqError: Swift.Error, Equatable, Hashable, Foundation.LocalizedError {
 
     
     
@@ -10185,8 +10483,7 @@ public func FfiConverterTypeMoqError_lower(_ value: MoqError) -> RustBuffer {
     return FfiConverterTypeMoqError.lower(value)
 }
 
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 /**
  * Output video codec.
  *
@@ -10264,8 +10561,7 @@ public func FfiConverterTypeMoqVideoCodec_lower(_ value: MoqVideoCodec) -> RustB
 }
 
 
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 /**
  * Which encoder implementation to use.
  *
@@ -10371,8 +10667,7 @@ public func FfiConverterTypeMoqVideoEncoderKind_lower(_ value: MoqVideoEncoderKi
 }
 
 
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 /**
  * Pixel layout of the raw frames passed to [`MoqVideoProducer::write`].
  */
@@ -11133,8 +11428,9 @@ fileprivate func uniffiFutureContinuationCallback(handle: UInt64, pollResult: In
  * Returns an error if called more than once.
  */
 public func moqLogLevel(level: String)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
     uniffi_moq_ffi_fn_func_moq_log_level(
-        FfiConverterString.lower(level),$0
+        FfiConverterString.lower(level),uniffiCallStatus
     )
 }
 }
@@ -11154,469 +11450,490 @@ private let initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if (uniffi_moq_ffi_checksum_func_moq_log_level() != 27140) {
+    if (uniffi_moq_ffi_checksum_func_moq_log_level() != 24625) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqaudioconsumer_cancel() != 33004) {
+    if (uniffi_moq_ffi_checksum_method_moqaudioconsumer_cancel() != 31743) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqaudioconsumer_next() != 55387) {
+    if (uniffi_moq_ffi_checksum_method_moqaudioconsumer_next() != 247) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqaudioproducer_finish() != 41749) {
+    if (uniffi_moq_ffi_checksum_method_moqaudioproducer_finish() != 6287) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqaudioproducer_write() != 49517) {
+    if (uniffi_moq_ffi_checksum_method_moqaudioproducer_name() != 63111) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_audio() != 50677) {
+    if (uniffi_moq_ffi_checksum_method_moqaudioproducer_reset_epoch() != 57448) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_fetch_group() != 28258) {
+    if (uniffi_moq_ffi_checksum_method_moqaudioproducer_unused() != 26060) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_fetch_media_group() != 19442) {
+    if (uniffi_moq_ffi_checksum_method_moqaudioproducer_used() != 36634) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_route() != 16738) {
+    if (uniffi_moq_ffi_checksum_method_moqaudioproducer_write() != 22094) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_route_updates() != 5829) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_audio() != 51433) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_catalog() != 47602) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_fetch_group() != 18633) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_media() != 1303) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_fetch_media_group() != 11148) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_track() != 16615) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_route() != 22082) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_json_snapshot() != 29757) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_route_updates() != 53247) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_json_stream() != 53781) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_catalog() != 34722) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqcatalogconsumer_cancel() != 1059) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_media() != 19493) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqcatalogconsumer_next() != 42881) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_track() != 37381) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqgroupconsumer_cancel() != 21782) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_json_snapshot() != 46473) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqgroupconsumer_read_frame() != 43591) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_json_stream() != 3028) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqgroupconsumer_sequence() != 61070) {
+    if (uniffi_moq_ffi_checksum_method_moqcatalogconsumer_cancel() != 37402) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaconsumer_cancel() != 12542) {
+    if (uniffi_moq_ffi_checksum_method_moqcatalogconsumer_next() != 33133) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaconsumer_next() != 49285) {
+    if (uniffi_moq_ffi_checksum_method_moqgroupconsumer_cancel() != 26278) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediagroupconsumer_cancel() != 24598) {
+    if (uniffi_moq_ffi_checksum_method_moqgroupconsumer_read_frame() != 26363) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediagroupconsumer_next() != 57043) {
+    if (uniffi_moq_ffi_checksum_method_moqgroupconsumer_sequence() != 46527) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediagroupconsumer_sequence() != 12408) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaconsumer_cancel() != 35497) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqroutewatch_cancel() != 61300) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaconsumer_next() != 42389) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqroutewatch_next() != 34673) {
+    if (uniffi_moq_ffi_checksum_method_moqmediagroupconsumer_cancel() != 51108) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_cancel() != 13373) {
+    if (uniffi_moq_ffi_checksum_method_moqmediagroupconsumer_next() != 22636) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_info() != 42913) {
+    if (uniffi_moq_ffi_checksum_method_moqmediagroupconsumer_sequence() != 22332) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_next_group() != 38789) {
+    if (uniffi_moq_ffi_checksum_method_moqroutewatch_cancel() != 58981) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_read_frame() != 13112) {
+    if (uniffi_moq_ffi_checksum_method_moqroutewatch_next() != 59843) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_recv_datagram() != 58393) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_cancel() != 61290) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_recv_group() != 26719) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_info() != 46426) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_update() != 37123) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_next_group() != 6710) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotconsumer_cancel() != 20318) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_read_frame() != 58741) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotconsumer_next() != 40200) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_recv_datagram() != 16161) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotproducer_finish() != 44519) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_recv_group() != 831) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotproducer_update() != 45946) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_update() != 24851) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqjsonstreamconsumer_cancel() != 60362) {
+    if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotconsumer_cancel() != 44009) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqjsonstreamconsumer_next() != 30879) {
+    if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotconsumer_next() != 64727) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqjsonstreamproducer_append() != 29352) {
+    if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotproducer_finish() != 42593) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqjsonstreamproducer_finish() != 52088) {
+    if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotproducer_update() != 18037) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqannounced_cancel() != 11787) {
+    if (uniffi_moq_ffi_checksum_method_moqjsonstreamconsumer_cancel() != 13497) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqannounced_next() != 30814) {
+    if (uniffi_moq_ffi_checksum_method_moqjsonstreamconsumer_next() != 7523) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqannouncedbroadcast_available() != 46046) {
+    if (uniffi_moq_ffi_checksum_method_moqjsonstreamproducer_append() != 12571) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqannouncedbroadcast_cancel() != 63780) {
+    if (uniffi_moq_ffi_checksum_method_moqjsonstreamproducer_finish() != 51459) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqannouncement_broadcast() != 8318) {
+    if (uniffi_moq_ffi_checksum_method_moqannounced_cancel() != 54065) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqannouncement_path() != 33642) {
+    if (uniffi_moq_ffi_checksum_method_moqannounced_next() != 25345) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastrequest_abort() != 38615) {
+    if (uniffi_moq_ffi_checksum_method_moqannouncedbroadcast_available() != 13508) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastrequest_accept() != 4831) {
+    if (uniffi_moq_ffi_checksum_method_moqannouncedbroadcast_cancel() != 59914) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastrequest_path() != 28555) {
+    if (uniffi_moq_ffi_checksum_method_moqannouncement_broadcast() != 51237) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_announced() != 65430) {
+    if (uniffi_moq_ffi_checksum_method_moqannouncement_path() != 59733) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_announced_broadcast() != 12781) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastrequest_abort() != 42319) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_request_broadcast() != 42600) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastrequest_accept() != 36946) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqorigindynamic_cancel() != 55027) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastrequest_path() != 6534) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqorigindynamic_requested_broadcast() != 53494) {
+    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_announced() != 48353) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqoriginproducer_consume() != 34292) {
+    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_announced_broadcast() != 18225) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqoriginproducer_create_broadcast() != 7635) {
+    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_request_broadcast() != 29590) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqoriginproducer_dynamic() != 19783) {
+    if (uniffi_moq_ffi_checksum_method_moqorigindynamic_cancel() != 60877) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastdynamic_cancel() != 41601) {
+    if (uniffi_moq_ffi_checksum_method_moqorigindynamic_requested_broadcast() != 26471) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastdynamic_requested_track() != 43684) {
+    if (uniffi_moq_ffi_checksum_method_moqoriginproducer_consume() != 52357) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_audio() != 39786) {
+    if (uniffi_moq_ffi_checksum_method_moqoriginproducer_create_broadcast() != 48871) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_json_snapshot() != 53223) {
+    if (uniffi_moq_ffi_checksum_method_moqoriginproducer_dynamic() != 40207) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_json_stream() != 37537) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastdynamic_cancel() != 61176) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_consume() != 46595) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastdynamic_requested_track() != 12071) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_dynamic() != 46433) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_audio() != 20708) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_finish() != 9168) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_json_snapshot() != 51036) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_media() != 44712) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_json_stream() != 47317) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_media_on_track() != 61309) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_consume() != 27634) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_media_stream() != 25992) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_dynamic() != 55635) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_track() != 41835) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_finish() != 7183) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_remove_catalog_section() != 42326) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_media() != 43231) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_announce() != 18686) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_media_on_track() != 54415) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_catalog_section() != 8811) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_media_stream() != 60403) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_route() != 2362) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_track() != 41634) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_video_properties() != 30609) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_remove_catalog_section() != 8608) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_video() != 58624) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_announce() != 5421) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqgroupproducer_abort() != 22408) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_catalog_section() != 25735) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqgroupproducer_consume() != 12315) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_route() != 48187) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqgroupproducer_finish() != 39760) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_video_properties() != 9178) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqgroupproducer_sequence() != 11821) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_video() != 10703) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqgroupproducer_write_frame() != 42697) {
+    if (uniffi_moq_ffi_checksum_method_moqgroupproducer_abort() != 59787) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqgrouprequest_abort() != 53199) {
+    if (uniffi_moq_ffi_checksum_method_moqgroupproducer_consume() != 53274) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqgrouprequest_accept() != 38986) {
+    if (uniffi_moq_ffi_checksum_method_moqgroupproducer_finish() != 35444) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqgrouprequest_priority() != 30080) {
+    if (uniffi_moq_ffi_checksum_method_moqgroupproducer_sequence() != 21067) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqgrouprequest_sequence() != 34701) {
+    if (uniffi_moq_ffi_checksum_method_moqgroupproducer_write_frame() != 2442) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_finish() != 13508) {
+    if (uniffi_moq_ffi_checksum_method_moqgrouprequest_abort() != 26970) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_name() != 35932) {
+    if (uniffi_moq_ffi_checksum_method_moqgrouprequest_accept() != 48242) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_unused() != 65253) {
+    if (uniffi_moq_ffi_checksum_method_moqgrouprequest_priority() != 1745) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_used() != 29546) {
+    if (uniffi_moq_ffi_checksum_method_moqgrouprequest_sequence() != 29523) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_write_frame() != 46299) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_finish() != 8039) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediastreamproducer_finish() != 44939) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_name() != 55742) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediastreamproducer_write() != 47083) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_unused() != 27885) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackdynamic_cancel() != 7164) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_used() != 19042) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackdynamic_requested_group() != 6073) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_write_frame() != 60790) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_abort() != 46232) {
+    if (uniffi_moq_ffi_checksum_method_moqmediastreamproducer_finish() != 36771) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_append_datagram() != 35955) {
+    if (uniffi_moq_ffi_checksum_method_moqmediastreamproducer_write() != 7686) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_append_group() != 28433) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackdynamic_cancel() != 21897) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_consume() != 23920) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackdynamic_requested_group() != 63983) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_create_group() != 8039) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_abort() != 37537) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_dynamic() != 30887) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_append_datagram() != 6272) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_finish() != 8455) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_append_group() != 45225) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_finish_at() != 55850) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_consume() != 48554) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_name() != 18320) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_create_group() != 38978) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_unused() != 40969) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_dynamic() != 58584) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_used() != 20539) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_finish() != 16707) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_write_frame() != 61798) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_finish_at() != 24581) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackrequest_abort() != 37864) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_name() != 14598) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackrequest_accept() != 59540) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_unused() != 9025) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackrequest_dynamic() != 36895) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_used() != 36898) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackrequest_name() != 15932) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_write_frame() != 18663) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqrequest_accept() != 35301) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackrequest_abort() != 62713) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqrequest_cancel() != 63846) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackrequest_accept() != 16277) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqrequest_path() != 52535) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackrequest_dynamic() != 24801) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqrequest_query() != 18056) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackrequest_name() != 56715) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqrequest_reject() != 28918) {
+    if (uniffi_moq_ffi_checksum_method_moqrequest_accept() != 46183) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqrequest_set_consume() != 25024) {
+    if (uniffi_moq_ffi_checksum_method_moqrequest_cancel() != 46242) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqrequest_set_publish() != 5686) {
+    if (uniffi_moq_ffi_checksum_method_moqrequest_path() != 48052) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqrequest_transport() != 789) {
+    if (uniffi_moq_ffi_checksum_method_moqrequest_query() != 23842) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqrequest_url() != 34738) {
+    if (uniffi_moq_ffi_checksum_method_moqrequest_reject() != 57471) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_accept() != 41383) {
+    if (uniffi_moq_ffi_checksum_method_moqrequest_set_consume() != 10143) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_cancel() != 36526) {
+    if (uniffi_moq_ffi_checksum_method_moqrequest_set_publish() != 48930) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_cert_fingerprints() != 38274) {
+    if (uniffi_moq_ffi_checksum_method_moqrequest_transport() != 5942) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_listen() != 19779) {
+    if (uniffi_moq_ffi_checksum_method_moqrequest_url() != 34138) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_set_bind() != 53276) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_accept() != 62476) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_set_consume() != 10795) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_cancel() != 379) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_set_publish() != 48707) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_cert_fingerprints() != 32082) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_set_tls_cert() != 59890) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_listen() != 9040) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_set_tls_generate() != 42920) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_set_bind() != 60575) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_set_tls_key() != 43796) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_set_consume() != 29005) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_cancel() != 42343) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_set_publish() != 54637) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_connect() != 57228) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_set_tls_cert() != 6344) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_bind() != 42107) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_set_tls_generate() != 51810) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_consume() != 55200) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_set_tls_key() != 61191) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_publish() != 56893) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_cancel() != 48149) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_cert() != 45194) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_connect() != 27725) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_disable_verify() != 17397) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_bind() != 7248) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_fingerprints() != 55328) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_consume() != 64342) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_key() != 13628) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_publish() != 29680) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_roots() != 54966) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_cert() != 24223) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_system_roots() != 42515) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_disable_verify() != 58510) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqsession_cancel() != 24930) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_fingerprints() != 48211) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqsession_closed() != 41657) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_key() != 499) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqsession_consumer() != 40339) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_roots() != 46542) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqsession_publisher() != 24627) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_system_roots() != 24617) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqsession_shutdown() != 15895) {
+    if (uniffi_moq_ffi_checksum_method_moqsession_cancel() != 29713) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqsession_stats() != 26506) {
+    if (uniffi_moq_ffi_checksum_method_moqsession_closed() != 53575) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_cut() != 55246) {
+    if (uniffi_moq_ffi_checksum_method_moqsession_consumer() != 62364) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_finish() != 27116) {
+    if (uniffi_moq_ffi_checksum_method_moqsession_publisher() != 55435) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_set_bitrate() != 53159) {
+    if (uniffi_moq_ffi_checksum_method_moqsession_shutdown() != 820) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_write() != 63316) {
+    if (uniffi_moq_ffi_checksum_method_moqsession_stats() != 15450) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_constructor_moqoriginproducer_new() != 58041) {
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_cut() != 27669) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_constructor_moqbroadcastproducer_new() != 48518) {
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_finish() != 59081) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_constructor_moqserver_new() != 36783) {
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_name() != 43551) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_constructor_moqclient_new() != 62327) {
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_set_bitrate() != 57197) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_unused() != 30941) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_used() != 48040) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_write() != 6141) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_constructor_moqoriginproducer_new() != 54724) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_constructor_moqbroadcastproducer_new() != 37572) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_constructor_moqserver_new() != 42979) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_constructor_moqclient_new() != 44907) {
         return InitializationResult.apiChecksumMismatch
     }
 

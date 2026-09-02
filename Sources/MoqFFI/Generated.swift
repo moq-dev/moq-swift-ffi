@@ -7992,10 +7992,10 @@ public struct MoqAudioDecoderOutput: Equatable, Hashable {
     public init(format: MoqAudioFormat, 
         /**
          * `None` delivers samples at the codec's native rate.
-         */sampleRate: UInt32?, 
+         */sampleRate: UInt32? = nil, 
         /**
          * `None` delivers samples at the codec's native channel count.
-         */channels: UInt32?, 
+         */channels: UInt32? = nil, 
         /**
          * Upper bound on buffering before skipping a stalled group, in
          * milliseconds. Same congestion-control knob as
@@ -8004,7 +8004,7 @@ public struct MoqAudioDecoderOutput: Equatable, Hashable {
          * the consumer skips. `None` keeps the moq-mux default of zero (skip
          * aggressively). Named `_max` to leave room for a future
          * `latency_min_ms` (jitter buffer).
-         */latencyMaxMs: UInt64?) {
+         */latencyMaxMs: UInt64? = nil) {
         self.format = format
         self.sampleRate = sampleRate
         self.channels = channels
@@ -8137,7 +8137,7 @@ public struct MoqAudioEncoderOutput: Equatable, Hashable {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(codec: MoqAudioCodec, sampleRate: UInt32?, channels: UInt32?, bitrate: UInt32?, 
+    public init(codec: MoqAudioCodec, sampleRate: UInt32? = nil, channels: UInt32? = nil, bitrate: UInt32? = nil, 
         /**
          * Encoded frame duration in milliseconds. Opus accepts
          * 2.5/5/10/20/40/60 ms; pass 20 to match the JS publish path.
@@ -8800,7 +8800,7 @@ public struct MoqInit: Equatable, Hashable {
          */data: Data, 
         /**
          * Caller-provided fields for a video track.
-         */video: MoqVideoHint?) {
+         */video: MoqVideoHint? = nil) {
         self.format = format
         self.data = data
         self.video = video
@@ -9800,19 +9800,19 @@ public struct MoqVideoHint: Equatable, Hashable {
     public init(
         /**
          * The encoded pixel dimensions.
-         */coded: MoqDimensions?, 
+         */coded: MoqDimensions? = nil, 
         /**
          * The display aspect ratio.
-         */displayAspect: MoqDimensions?, 
+         */displayAspect: MoqDimensions? = nil, 
         /**
          * The maximum bitrate in bits per second.
-         */bitrate: UInt64?, 
+         */bitrate: UInt64? = nil, 
         /**
          * The frame rate in frames per second.
-         */framerate: Double?, 
+         */framerate: Double? = nil, 
         /**
          * Whether the decoder should optimize for latency.
-         */optimizeForLatency: Bool?) {
+         */optimizeForLatency: Bool? = nil) {
         self.coded = coded
         self.displayAspect = displayAspect
         self.bitrate = bitrate

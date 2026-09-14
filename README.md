@@ -11,11 +11,11 @@ Swift Package Manager releases, lockstep with the `moq-ffi` crate.
 ## Install
 
 ```swift
-.package(url: "https://github.com/moq-dev/moq-swift-ffi", from: "0.3.17"),
+.package(url: "https://github.com/moq-dev/moq-swift-ffi", from: "0.3.18"),
 ```
 
 The package depends on a prebuilt `MoqFFI.xcframework` attached to the matching
-[moq-ffi-v0.3.17](https://github.com/moq-dev/moq/releases/tag/moq-ffi-v0.3.17)
+[moq-ffi-v0.3.18](https://github.com/moq-dev/moq/releases/tag/moq-ffi-v0.3.18)
 release on the source repo.
 
 Licensed under MIT OR Apache-2.0.

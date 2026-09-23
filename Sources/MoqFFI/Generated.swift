@@ -633,22 +633,22 @@ fileprivate struct FfiConverterData: FfiConverterRustBuffer {
 
 
 
-public protocol MoqAnnouncedProtocol: AnyObject, Sendable {
+public protocol MoqAnnounceConsumerProtocol: AnyObject, Sendable {
     
     /**
      * Cancel all current and future `next()` calls.
+     *
+     * Terminal: the announcement stream is released here, not when the handle is.
      */
     func cancel() 
     
     /**
-     * Get the next broadcast announcement. Returns `None` when the origin is closed.
-     *
-     * Use `broadcast.closed()` to learn when a broadcast is unannounced.
+     * Get the next route announcement or retraction. Returns `None` when the origin is closed.
      */
-    func next() async throws  -> MoqAnnouncement?
+    func next() async throws  -> MoqAnnounceUpdate?
     
 }
-open class MoqAnnounced: MoqAnnouncedProtocol, @unchecked Sendable {
+open class MoqAnnounceConsumer: MoqAnnounceConsumerProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
 
     /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
@@ -685,7 +685,7 @@ open class MoqAnnounced: MoqAnnouncedProtocol, @unchecked Sendable {
     @_documentation(visibility: private)
 #endif
     public func uniffiCloneHandle() -> UInt64 {
-        return try! rustCall { uniffi_moq_ffi_fn_clone_moqannounced(self.handle, $0) }
+        return try! rustCall { uniffi_moq_ffi_fn_clone_moqannounceconsumer(self.handle, $0) }
     }
     // No primary constructor declared for this class.
 
@@ -695,7 +695,7 @@ open class MoqAnnounced: MoqAnnouncedProtocol, @unchecked Sendable {
             return
         }
 
-        try! rustCall { uniffi_moq_ffi_fn_free_moqannounced(handle, $0) }
+        try! rustCall { uniffi_moq_ffi_fn_free_moqannounceconsumer(handle, $0) }
     }
 
     
@@ -703,32 +703,32 @@ open class MoqAnnounced: MoqAnnouncedProtocol, @unchecked Sendable {
     
     /**
      * Cancel all current and future `next()` calls.
+     *
+     * Terminal: the announcement stream is released here, not when the handle is.
      */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqannounced_cancel(
+    uniffi_moq_ffi_fn_method_moqannounceconsumer_cancel(
             self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
 }
     
     /**
-     * Get the next broadcast announcement. Returns `None` when the origin is closed.
-     *
-     * Use `broadcast.closed()` to learn when a broadcast is unannounced.
+     * Get the next route announcement or retraction. Returns `None` when the origin is closed.
      */
-open func next()async throws  -> MoqAnnouncement?  {
+open func next()async throws  -> MoqAnnounceUpdate?  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_moq_ffi_fn_method_moqannounced_next(
+                uniffi_moq_ffi_fn_method_moqannounceconsumer_next(
                         self.uniffiCloneHandle()
                 )
             },
             pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
             completeFunc: ffi_moq_ffi_rust_future_complete_rust_buffer,
             freeFunc: ffi_moq_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterOptionTypeMoqAnnouncement.lift,
+            liftFunc: FfiConverterOptionTypeMoqAnnounceUpdate.lift,
             errorHandler: FfiConverterTypeMoqError_lift
         )
 }
@@ -741,24 +741,24 @@ open func next()async throws  -> MoqAnnouncement?  {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeMoqAnnounced: FfiConverter {
+public struct FfiConverterTypeMoqAnnounceConsumer: FfiConverter {
     typealias FfiType = UInt64
-    typealias SwiftType = MoqAnnounced
+    typealias SwiftType = MoqAnnounceConsumer
 
-    public static func lift(_ handle: UInt64) throws -> MoqAnnounced {
-        return MoqAnnounced(unsafeFromHandle: handle)
+    public static func lift(_ handle: UInt64) throws -> MoqAnnounceConsumer {
+        return MoqAnnounceConsumer(unsafeFromHandle: handle)
     }
 
-    public static func lower(_ value: MoqAnnounced) -> UInt64 {
+    public static func lower(_ value: MoqAnnounceConsumer) -> UInt64 {
         return value.uniffiCloneHandle()
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqAnnounced {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqAnnounceConsumer {
         let handle: UInt64 = try readInt(&buf)
         return try lift(handle)
     }
 
-    public static func write(_ value: MoqAnnounced, into buf: inout [UInt8]) {
+    public static func write(_ value: MoqAnnounceConsumer, into buf: inout [UInt8]) {
         writeInt(&buf, lower(value))
     }
 }
@@ -767,15 +767,207 @@ public struct FfiConverterTypeMoqAnnounced: FfiConverter {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeMoqAnnounced_lift(_ handle: UInt64) throws -> MoqAnnounced {
-    return try FfiConverterTypeMoqAnnounced.lift(handle)
+public func FfiConverterTypeMoqAnnounceConsumer_lift(_ handle: UInt64) throws -> MoqAnnounceConsumer {
+    return try FfiConverterTypeMoqAnnounceConsumer.lift(handle)
 }
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeMoqAnnounced_lower(_ value: MoqAnnounced) -> UInt64 {
-    return FfiConverterTypeMoqAnnounced.lower(value)
+public func FfiConverterTypeMoqAnnounceConsumer_lower(_ value: MoqAnnounceConsumer) -> UInt64 {
+    return FfiConverterTypeMoqAnnounceConsumer.lower(value)
+}
+
+
+
+
+
+
+/**
+ * A route announcement (or retraction) from an origin.
+ *
+ * Carries no broadcast: resolve a specific path with
+ * `MoqOriginConsumer::request_broadcast` (after this update proves it is
+ * covered). Its prefix is relative to the origin. The application decides
+ * which paths name broadcasts.
+ */
+public protocol MoqAnnounceUpdateProtocol: AnyObject, Sendable {
+    
+    /**
+     * Whether the route is active (`true`) or was retracted (`false`). A repeated
+     * active announcement for the same prefix is a metadata update.
+     */
+    func active()  -> Bool
+    
+    /**
+     * What each wildcard matched, or `None` when the route only overlaps the scope.
+     */
+    func captures()  -> [String]?
+    
+    /**
+     * The covered prefix, relative to the origin.
+     */
+    func prefix()  -> String
+    
+    /**
+     * The route serving the prefix: its hops and costs.
+     */
+    func route()  -> MoqRoute
+    
+}
+/**
+ * A route announcement (or retraction) from an origin.
+ *
+ * Carries no broadcast: resolve a specific path with
+ * `MoqOriginConsumer::request_broadcast` (after this update proves it is
+ * covered). Its prefix is relative to the origin. The application decides
+ * which paths name broadcasts.
+ */
+open class MoqAnnounceUpdate: MoqAnnounceUpdateProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_moq_ffi_fn_clone_moqannounceupdate(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_moq_ffi_fn_free_moqannounceupdate(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Whether the route is active (`true`) or was retracted (`false`). A repeated
+     * active announcement for the same prefix is a metadata update.
+     */
+open func active() -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqannounceupdate_active(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * What each wildcard matched, or `None` when the route only overlaps the scope.
+     */
+open func captures() -> [String]?  {
+    return try!  FfiConverterOptionSequenceString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqannounceupdate_captures(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The covered prefix, relative to the origin.
+     */
+open func prefix() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqannounceupdate_prefix(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The route serving the prefix: its hops and costs.
+     */
+open func route() -> MoqRoute  {
+    return try!  FfiConverterTypeMoqRoute_lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqannounceupdate_route(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqAnnounceUpdate: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = MoqAnnounceUpdate
+
+    public static func lift(_ handle: UInt64) throws -> MoqAnnounceUpdate {
+        return MoqAnnounceUpdate(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: MoqAnnounceUpdate) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqAnnounceUpdate {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: MoqAnnounceUpdate, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqAnnounceUpdate_lift(_ handle: UInt64) throws -> MoqAnnounceUpdate {
+    return try FfiConverterTypeMoqAnnounceUpdate.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqAnnounceUpdate_lower(_ value: MoqAnnounceUpdate) -> UInt64 {
+    return FfiConverterTypeMoqAnnounceUpdate.lower(value)
 }
 
 
@@ -791,12 +983,14 @@ public protocol MoqAnnouncedBroadcastProtocol: AnyObject, Sendable {
     /**
      * Wait until the broadcast is announced. Returns `Closed` if cancelled or the origin is closed.
      *
-     * Use `broadcast.closed()` to learn when a broadcast is unannounced.
+     * Use `broadcast.closed()` to learn when the broadcast ends.
      */
     func available() async throws  -> MoqBroadcastConsumer
     
     /**
      * Cancel all current and future `available()` calls.
+     *
+     * Terminal: the announcement watch is released here, not when the handle is.
      */
     func cancel() 
     
@@ -860,7 +1054,7 @@ open class MoqAnnouncedBroadcast: MoqAnnouncedBroadcastProtocol, @unchecked Send
     /**
      * Wait until the broadcast is announced. Returns `Closed` if cancelled or the origin is closed.
      *
-     * Use `broadcast.closed()` to learn when a broadcast is unannounced.
+     * Use `broadcast.closed()` to learn when the broadcast ends.
      */
 open func available()async throws  -> MoqBroadcastConsumer  {
     return
@@ -880,6 +1074,8 @@ open func available()async throws  -> MoqBroadcastConsumer  {
     
     /**
      * Cancel all current and future `available()` calls.
+     *
+     * Terminal: the announcement watch is released here, not when the handle is.
      */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
@@ -940,25 +1136,21 @@ public func FfiConverterTypeMoqAnnouncedBroadcast_lower(_ value: MoqAnnouncedBro
 
 
 /**
- * A broadcast announcement from an origin.
+ * Audio codec selection for the encoder.
+ *
+ * An immutable object so adding a codec later does not break callers
+ * switching over a closed enum. Currently only Opus is available.
  */
-public protocol MoqAnnouncementProtocol: AnyObject, Sendable {
-    
-    /**
-     * The broadcast consumer.
-     */
-    func broadcast()  -> MoqBroadcastConsumer
-    
-    /**
-     * The path of the announced broadcast.
-     */
-    func path()  -> String
+public protocol MoqAudioCodecProtocol: AnyObject, Sendable {
     
 }
 /**
- * A broadcast announcement from an origin.
+ * Audio codec selection for the encoder.
+ *
+ * An immutable object so adding a codec later does not break callers
+ * switching over a closed enum. Currently only Opus is available.
  */
-open class MoqAnnouncement: MoqAnnouncementProtocol, @unchecked Sendable {
+open class MoqAudioCodec: MoqAudioCodecProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
 
     /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
@@ -995,7 +1187,7 @@ open class MoqAnnouncement: MoqAnnouncementProtocol, @unchecked Sendable {
     @_documentation(visibility: private)
 #endif
     public func uniffiCloneHandle() -> UInt64 {
-        return try! rustCall { uniffi_moq_ffi_fn_clone_moqannouncement(self.handle, $0) }
+        return try! rustCall { uniffi_moq_ffi_fn_clone_moqaudiocodec(self.handle, $0) }
     }
     // No primary constructor declared for this class.
 
@@ -1005,35 +1197,22 @@ open class MoqAnnouncement: MoqAnnouncementProtocol, @unchecked Sendable {
             return
         }
 
-        try! rustCall { uniffi_moq_ffi_fn_free_moqannouncement(handle, $0) }
+        try! rustCall { uniffi_moq_ffi_fn_free_moqaudiocodec(handle, $0) }
     }
 
     
+    /**
+     * Opus (RFC 6716).
+     */
+public static func opus() -> MoqAudioCodec  {
+    return try!  FfiConverterTypeMoqAudioCodec_lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_constructor_moqaudiocodec_opus(uniffiCallStatus
+    )
+})
+}
+    
 
-    
-    /**
-     * The broadcast consumer.
-     */
-open func broadcast() -> MoqBroadcastConsumer  {
-    return try!  FfiConverterTypeMoqBroadcastConsumer_lift(try! rustCall() {
-        uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqannouncement_broadcast(
-            self.uniffiCloneHandle(),uniffiCallStatus
-    )
-})
-}
-    
-    /**
-     * The path of the announced broadcast.
-     */
-open func path() -> String  {
-    return try!  FfiConverterString.lift(try! rustCall() {
-        uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqannouncement_path(
-            self.uniffiCloneHandle(),uniffiCallStatus
-    )
-})
-}
     
 
     
@@ -1043,24 +1222,24 @@ open func path() -> String  {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeMoqAnnouncement: FfiConverter {
+public struct FfiConverterTypeMoqAudioCodec: FfiConverter {
     typealias FfiType = UInt64
-    typealias SwiftType = MoqAnnouncement
+    typealias SwiftType = MoqAudioCodec
 
-    public static func lift(_ handle: UInt64) throws -> MoqAnnouncement {
-        return MoqAnnouncement(unsafeFromHandle: handle)
+    public static func lift(_ handle: UInt64) throws -> MoqAudioCodec {
+        return MoqAudioCodec(unsafeFromHandle: handle)
     }
 
-    public static func lower(_ value: MoqAnnouncement) -> UInt64 {
+    public static func lower(_ value: MoqAudioCodec) -> UInt64 {
         return value.uniffiCloneHandle()
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqAnnouncement {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqAudioCodec {
         let handle: UInt64 = try readInt(&buf)
         return try lift(handle)
     }
 
-    public static func write(_ value: MoqAnnouncement, into buf: inout [UInt8]) {
+    public static func write(_ value: MoqAudioCodec, into buf: inout [UInt8]) {
         writeInt(&buf, lower(value))
     }
 }
@@ -1069,15 +1248,15 @@ public struct FfiConverterTypeMoqAnnouncement: FfiConverter {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeMoqAnnouncement_lift(_ handle: UInt64) throws -> MoqAnnouncement {
-    return try FfiConverterTypeMoqAnnouncement.lift(handle)
+public func FfiConverterTypeMoqAudioCodec_lift(_ handle: UInt64) throws -> MoqAudioCodec {
+    return try FfiConverterTypeMoqAudioCodec.lift(handle)
 }
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeMoqAnnouncement_lower(_ value: MoqAnnouncement) -> UInt64 {
-    return FfiConverterTypeMoqAnnouncement.lower(value)
+public func FfiConverterTypeMoqAudioCodec_lower(_ value: MoqAudioCodec) -> UInt64 {
+    return FfiConverterTypeMoqAudioCodec.lower(value)
 }
 
 
@@ -1090,8 +1269,16 @@ public func FfiConverterTypeMoqAnnouncement_lower(_ value: MoqAnnouncement) -> U
  */
 public protocol MoqAudioConsumerProtocol: AnyObject, Sendable {
     
+    /**
+     * Make current and future reads return `Cancelled`.
+     *
+     * Terminal: the decoder session is released here, not when the handle is.
+     */
     func cancel() 
     
+    /**
+     * The next decoded frame, or `None` once the track ends.
+     */
     func next() async throws  -> MoqAudioFrame?
     
 }
@@ -1151,6 +1338,11 @@ open class MoqAudioConsumer: MoqAudioConsumerProtocol, @unchecked Sendable {
     
 
     
+    /**
+     * Make current and future reads return `Cancelled`.
+     *
+     * Terminal: the decoder session is released here, not when the handle is.
+     */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqaudioconsumer_cancel(
@@ -1159,6 +1351,9 @@ open func cancel()  {try! rustCall() {
 }
 }
     
+    /**
+     * The next decoded frame, or `None` once the track ends.
+     */
 open func next()async throws  -> MoqAudioFrame?  {
     return
         try  await uniffiRustCallAsync(
@@ -1241,6 +1436,13 @@ public protocol MoqAudioProducerProtocol: AnyObject, Sendable {
      * Return the name of this audio track.
      */
     func name() throws  -> String
+    
+    /**
+     * This encoder's bandwidth reservation, if it was published against a
+     * [`MoqBandwidth`]. Dropping the handle does not release the claim; the
+     * producer holds it until [`finish`](Self::finish).
+     */
+    func reservation()  -> MoqReservation?
     
     /**
      * Re-anchor the timeline to the next frame's timestamp.
@@ -1339,6 +1541,20 @@ open func name()throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqaudioproducer_name(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * This encoder's bandwidth reservation, if it was published against a
+     * [`MoqBandwidth`]. Dropping the handle does not release the claim; the
+     * producer holds it until [`finish`](Self::finish).
+     */
+open func reservation() -> MoqReservation?  {
+    return try!  FfiConverterOptionTypeMoqReservation.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqaudioproducer_reservation(
             self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
@@ -1455,6 +1671,155 @@ public func FfiConverterTypeMoqAudioProducer_lower(_ value: MoqAudioProducer) ->
 
 
 
+/**
+ * Divides one connection's send estimate among the tracks sharing it.
+ *
+ * Minted by [`MoqSession::bandwidth`](crate::session::MoqSession::bandwidth).
+ * Clones share one reservation registry, so two handles from the same session
+ * see each other's claims.
+ */
+public protocol MoqBandwidthProtocol: AnyObject, Sendable {
+    
+    /**
+     * Reserve up to `max_bps` for `track`, returning the reservation.
+     *
+     * `max_bps` is a ceiling, not a measurement: reserve the most the track can
+     * ever send. The reservation lasts as long as the returned handle; drop it
+     * to hand the room back. [`MoqReservation::update`] moves the ceiling
+     * without claiming twice.
+     */
+    func reserve(track: MoqTrackProducer, maxBps: UInt64) throws  -> MoqReservation
+    
+}
+/**
+ * Divides one connection's send estimate among the tracks sharing it.
+ *
+ * Minted by [`MoqSession::bandwidth`](crate::session::MoqSession::bandwidth).
+ * Clones share one reservation registry, so two handles from the same session
+ * see each other's claims.
+ */
+open class MoqBandwidth: MoqBandwidthProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_moq_ffi_fn_clone_moqbandwidth(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_moq_ffi_fn_free_moqbandwidth(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Reserve up to `max_bps` for `track`, returning the reservation.
+     *
+     * `max_bps` is a ceiling, not a measurement: reserve the most the track can
+     * ever send. The reservation lasts as long as the returned handle; drop it
+     * to hand the room back. [`MoqReservation::update`] moves the ceiling
+     * without claiming twice.
+     */
+open func reserve(track: MoqTrackProducer, maxBps: UInt64)throws  -> MoqReservation  {
+    return try  FfiConverterTypeMoqReservation_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbandwidth_reserve(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeMoqTrackProducer_lower(track),
+        FfiConverterUInt64.lower(maxBps),uniffiCallStatus
+    )
+})
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqBandwidth: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = MoqBandwidth
+
+    public static func lift(_ handle: UInt64) throws -> MoqBandwidth {
+        return MoqBandwidth(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: MoqBandwidth) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqBandwidth {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: MoqBandwidth, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqBandwidth_lift(_ handle: UInt64) throws -> MoqBandwidth {
+    return try FfiConverterTypeMoqBandwidth.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqBandwidth_lower(_ value: MoqBandwidth) -> UInt64 {
+    return FfiConverterTypeMoqBandwidth.lower(value)
+}
+
+
+
+
+
+
 public protocol MoqBroadcastConsumerProtocol: AnyObject, Sendable {
     
     /**
@@ -1462,8 +1827,11 @@ public protocol MoqBroadcastConsumerProtocol: AnyObject, Sendable {
      * the catalog (see
      * [`MoqCatalogConsumer::next`](crate::consumer::MoqCatalogConsumer::next));
      * the codec is inferred from it. Only Opus and AAC-LC are supported.
+     *
+     * A rendition whose [`broadcast`](crate::media::MoqAudio::broadcast) names another broadcast
+     * is subscribed there, so `name` is always read from the broadcast the catalog points at.
      */
-    func subscribeAudio(name: String, catalogAudio: MoqAudio, output: MoqAudioDecoderOutput) async throws  -> MoqAudioConsumer
+    func decodeAudio(name: String, catalogAudio: MoqAudio, output: MoqAudioDecoderOutput) async throws  -> MoqAudioConsumer
     
     /**
      * Fetch one complete group by track name and group sequence.
@@ -1478,23 +1846,26 @@ public protocol MoqBroadcastConsumerProtocol: AnyObject, Sendable {
      * Fetch one group and decode its track container into media frames.
      *
      * Unlike [`Self::subscribe_media`], this does not create a live subscription or apply
-     * latency-based group skipping. The returned consumer reads exactly the requested group
+     * age-based group skipping. The returned consumer reads exactly the requested group
      * until [`MoqMediaGroupConsumer::next`] returns `None`.
      */
     func fetchMediaGroup(name: String, sequence: UInt64, container: MoqContainer, options: MoqFetchGroupOptions?) async throws  -> MoqMediaGroupConsumer
     
     /**
-     * The route the broadcast currently takes to reach this origin.
-     */
-    func route()  -> MoqRoute
-    
-    /**
-     * Watch the broadcast's route for changes.
+     * Resolve a catalog rendition's `broadcast` reference to the broadcast serving its track.
      *
-     * The returned watch yields the current route first, then every update
-     * (e.g. an upstream failover), so a loop observes the full history from now.
+     * `reference` is [`MoqVideo::broadcast`] / [`MoqAudio::broadcast`]: absent or empty names
+     * this broadcast, anything else names a sibling relative to it (e.g. `./source`). Call it on a
+     * rendition that carries one before [`Self::subscribe_media`], [`Self::subscribe_track`],
+     * [`Self::fetch_group`], or [`Self::fetch_media_group`], which take a track name rather than a
+     * rendition; `decode_video` and `decode_audio` resolve it themselves.
+     *
+     * Errors if this broadcast came from a local producer rather than an origin, since a
+     * standalone broadcast has no sibling to name, and reports a sibling that exists but is not
+     * announced yet as unroutable rather than waiting for it (see
+     * [`MoqOriginConsumer::request_broadcast`](crate::origin::MoqOriginConsumer::request_broadcast)).
      */
-    func routeUpdates()  -> MoqRouteWatch
+    func resolve(reference: String?) async throws  -> MoqBroadcastConsumer
     
     /**
      * Subscribe to the catalog for this broadcast.
@@ -1505,9 +1876,9 @@ public protocol MoqBroadcastConsumerProtocol: AnyObject, Sendable {
      * Subscribe to a track by name, delivering frames in decode order.
      *
      * `container` is the track container from the catalog.
-     * `subscription` tunes delivery priority, group ordering priority, and group range; omit for defaults.
+     * `subscription` tunes delivery priority, group range, and staleness; omit for defaults.
      *
-     * [`MoqSubscription::latency_max_ms`] bounds the local jitter buffer as well as
+     * [`MoqSubscription::max_age_us`] bounds the local jitter buffer as well as
      * the publisher's cache, so both ends skip a stalled group on the same budget.
      */
     func subscribeMedia(name: String, container: MoqContainer, subscription: MoqSubscription?) async throws  -> MoqMediaConsumer
@@ -1516,7 +1887,7 @@ public protocol MoqBroadcastConsumerProtocol: AnyObject, Sendable {
      * Subscribe to a track by name, the same pattern as moq-boy's command/status tracks.
      *
      * Frames are returned as plain byte payloads with no codec or container parsing.
-     * `subscription` tunes delivery priority, group ordering priority, and group range; omit for defaults.
+     * `subscription` tunes delivery priority, group range, and staleness; omit for defaults.
      */
     func subscribeTrack(name: String, subscription: MoqSubscription?) async throws  -> MoqTrackConsumer
     
@@ -1531,6 +1902,19 @@ public protocol MoqBroadcastConsumerProtocol: AnyObject, Sendable {
      * Subscribe to a JSON stream track (lossless append-log) by name.
      */
     func subscribeJsonStream(name: String, config: MoqJsonStreamConfig) async throws  -> MoqJsonStreamConsumer
+    
+    /**
+     * Subscribe to a video track and decode it inside the bindings.
+     *
+     * `catalog_video` comes from the catalog (see
+     * [`MoqCatalogConsumer::next`](crate::consumer::MoqCatalogConsumer::next)); the codec is read
+     * from it. Errors if no native backend handles that codec, rather than failing on the first
+     * frame.
+     *
+     * A rendition whose [`broadcast`](crate::media::MoqVideo::broadcast) names another broadcast
+     * is subscribed there, so `name` is always read from the broadcast the catalog points at.
+     */
+    func decodeVideo(name: String, catalogVideo: MoqVideo, output: MoqVideoDecoderOutput) async throws  -> MoqVideoConsumer
     
 }
 open class MoqBroadcastConsumer: MoqBroadcastConsumerProtocol, @unchecked Sendable {
@@ -1591,12 +1975,15 @@ open class MoqBroadcastConsumer: MoqBroadcastConsumerProtocol, @unchecked Sendab
      * the catalog (see
      * [`MoqCatalogConsumer::next`](crate::consumer::MoqCatalogConsumer::next));
      * the codec is inferred from it. Only Opus and AAC-LC are supported.
+     *
+     * A rendition whose [`broadcast`](crate::media::MoqAudio::broadcast) names another broadcast
+     * is subscribed there, so `name` is always read from the broadcast the catalog points at.
      */
-open func subscribeAudio(name: String, catalogAudio: MoqAudio, output: MoqAudioDecoderOutput)async throws  -> MoqAudioConsumer  {
+open func decodeAudio(name: String, catalogAudio: MoqAudio, output: MoqAudioDecoderOutput)async throws  -> MoqAudioConsumer  {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_moq_ffi_fn_method_moqbroadcastconsumer_subscribe_audio(
+                uniffi_moq_ffi_fn_method_moqbroadcastconsumer_decode_audio(
                         self.uniffiCloneHandle(),FfiConverterString.lower(name),FfiConverterTypeMoqAudio_lower(catalogAudio),FfiConverterTypeMoqAudioDecoderOutput_lower(output)
                 )
             },
@@ -1635,7 +2022,7 @@ open func fetchGroup(name: String, sequence: UInt64, options: MoqFetchGroupOptio
      * Fetch one group and decode its track container into media frames.
      *
      * Unlike [`Self::subscribe_media`], this does not create a live subscription or apply
-     * latency-based group skipping. The returned consumer reads exactly the requested group
+     * age-based group skipping. The returned consumer reads exactly the requested group
      * until [`MoqMediaGroupConsumer::next`] returns `None`.
      */
 open func fetchMediaGroup(name: String, sequence: UInt64, container: MoqContainer, options: MoqFetchGroupOptions?)async throws  -> MoqMediaGroupConsumer  {
@@ -1655,30 +2042,33 @@ open func fetchMediaGroup(name: String, sequence: UInt64, container: MoqContaine
 }
     
     /**
-     * The route the broadcast currently takes to reach this origin.
-     */
-open func route() -> MoqRoute  {
-    return try!  FfiConverterTypeMoqRoute_lift(try! rustCall() {
-        uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqbroadcastconsumer_route(
-            self.uniffiCloneHandle(),uniffiCallStatus
-    )
-})
-}
-    
-    /**
-     * Watch the broadcast's route for changes.
+     * Resolve a catalog rendition's `broadcast` reference to the broadcast serving its track.
      *
-     * The returned watch yields the current route first, then every update
-     * (e.g. an upstream failover), so a loop observes the full history from now.
+     * `reference` is [`MoqVideo::broadcast`] / [`MoqAudio::broadcast`]: absent or empty names
+     * this broadcast, anything else names a sibling relative to it (e.g. `./source`). Call it on a
+     * rendition that carries one before [`Self::subscribe_media`], [`Self::subscribe_track`],
+     * [`Self::fetch_group`], or [`Self::fetch_media_group`], which take a track name rather than a
+     * rendition; `decode_video` and `decode_audio` resolve it themselves.
+     *
+     * Errors if this broadcast came from a local producer rather than an origin, since a
+     * standalone broadcast has no sibling to name, and reports a sibling that exists but is not
+     * announced yet as unroutable rather than waiting for it (see
+     * [`MoqOriginConsumer::request_broadcast`](crate::origin::MoqOriginConsumer::request_broadcast)).
      */
-open func routeUpdates() -> MoqRouteWatch  {
-    return try!  FfiConverterTypeMoqRouteWatch_lift(try! rustCall() {
-        uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqbroadcastconsumer_route_updates(
-            self.uniffiCloneHandle(),uniffiCallStatus
-    )
-})
+open func resolve(reference: String?)async throws  -> MoqBroadcastConsumer  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_moq_ffi_fn_method_moqbroadcastconsumer_resolve(
+                        self.uniffiCloneHandle(),FfiConverterOptionString.lower(reference)
+                )
+            },
+            pollFunc: ffi_moq_ffi_rust_future_poll_u64,
+            completeFunc: ffi_moq_ffi_rust_future_complete_u64,
+            freeFunc: ffi_moq_ffi_rust_future_free_u64,
+            liftFunc: FfiConverterTypeMoqBroadcastConsumer_lift,
+            errorHandler: FfiConverterTypeMoqError_lift
+        )
 }
     
     /**
@@ -1704,9 +2094,9 @@ open func subscribeCatalog()async throws  -> MoqCatalogConsumer  {
      * Subscribe to a track by name, delivering frames in decode order.
      *
      * `container` is the track container from the catalog.
-     * `subscription` tunes delivery priority, group ordering priority, and group range; omit for defaults.
+     * `subscription` tunes delivery priority, group range, and staleness; omit for defaults.
      *
-     * [`MoqSubscription::latency_max_ms`] bounds the local jitter buffer as well as
+     * [`MoqSubscription::max_age_us`] bounds the local jitter buffer as well as
      * the publisher's cache, so both ends skip a stalled group on the same budget.
      */
 open func subscribeMedia(name: String, container: MoqContainer, subscription: MoqSubscription?)async throws  -> MoqMediaConsumer  {
@@ -1729,7 +2119,7 @@ open func subscribeMedia(name: String, container: MoqContainer, subscription: Mo
      * Subscribe to a track by name, the same pattern as moq-boy's command/status tracks.
      *
      * Frames are returned as plain byte payloads with no codec or container parsing.
-     * `subscription` tunes delivery priority, group ordering priority, and group range; omit for defaults.
+     * `subscription` tunes delivery priority, group range, and staleness; omit for defaults.
      */
 open func subscribeTrack(name: String, subscription: MoqSubscription?)async throws  -> MoqTrackConsumer  {
     return
@@ -1783,6 +2173,33 @@ open func subscribeJsonStream(name: String, config: MoqJsonStreamConfig)async th
             completeFunc: ffi_moq_ffi_rust_future_complete_u64,
             freeFunc: ffi_moq_ffi_rust_future_free_u64,
             liftFunc: FfiConverterTypeMoqJsonStreamConsumer_lift,
+            errorHandler: FfiConverterTypeMoqError_lift
+        )
+}
+    
+    /**
+     * Subscribe to a video track and decode it inside the bindings.
+     *
+     * `catalog_video` comes from the catalog (see
+     * [`MoqCatalogConsumer::next`](crate::consumer::MoqCatalogConsumer::next)); the codec is read
+     * from it. Errors if no native backend handles that codec, rather than failing on the first
+     * frame.
+     *
+     * A rendition whose [`broadcast`](crate::media::MoqVideo::broadcast) names another broadcast
+     * is subscribed there, so `name` is always read from the broadcast the catalog points at.
+     */
+open func decodeVideo(name: String, catalogVideo: MoqVideo, output: MoqVideoDecoderOutput)async throws  -> MoqVideoConsumer  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_moq_ffi_fn_method_moqbroadcastconsumer_decode_video(
+                        self.uniffiCloneHandle(),FfiConverterString.lower(name),FfiConverterTypeMoqVideo_lower(catalogVideo),FfiConverterTypeMoqVideoDecoderOutput_lower(output)
+                )
+            },
+            pollFunc: ffi_moq_ffi_rust_future_poll_u64,
+            completeFunc: ffi_moq_ffi_rust_future_complete_u64,
+            freeFunc: ffi_moq_ffi_rust_future_free_u64,
+            liftFunc: FfiConverterTypeMoqVideoConsumer_lift,
             errorHandler: FfiConverterTypeMoqError_lift
         )
 }
@@ -1841,6 +2258,9 @@ public protocol MoqBroadcastDynamicProtocol: AnyObject, Sendable {
     
     /**
      * Cancel all current and future `requested_track()` calls.
+     *
+     * Terminal: the dynamic broadcast is released here, not when the handle is, so any pending
+     * request is rejected.
      */
     func cancel() 
     
@@ -1849,7 +2269,7 @@ public protocol MoqBroadcastDynamicProtocol: AnyObject, Sendable {
      *
      * Returns a [`MoqTrackRequest`]: accept it for raw writes with
      * [`MoqTrackRequest::accept`], publish media onto it with
-     * [`MoqBroadcastProducer::publish_media_on_track`], or reject it with
+     * [`MoqBroadcastProducer::publish_audio_on_track`], or reject it with
      * [`MoqTrackRequest::abort`]. The requesting subscriber stays pending until then.
      *
      * Returns an error once the broadcast is closed or aborted.
@@ -1912,6 +2332,9 @@ open class MoqBroadcastDynamic: MoqBroadcastDynamicProtocol, @unchecked Sendable
     
     /**
      * Cancel all current and future `requested_track()` calls.
+     *
+     * Terminal: the dynamic broadcast is released here, not when the handle is, so any pending
+     * request is rejected.
      */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
@@ -1926,7 +2349,7 @@ open func cancel()  {try! rustCall() {
      *
      * Returns a [`MoqTrackRequest`]: accept it for raw writes with
      * [`MoqTrackRequest::accept`], publish media onto it with
-     * [`MoqBroadcastProducer::publish_media_on_track`], or reject it with
+     * [`MoqBroadcastProducer::publish_audio_on_track`], or reject it with
      * [`MoqTrackRequest::abort`]. The requesting subscriber stays pending until then.
      *
      * Returns an error once the broadcast is closed or aborted.
@@ -2003,8 +2426,13 @@ public protocol MoqBroadcastProducerProtocol: AnyObject, Sendable {
      * Open an audio track on this broadcast. The catalog rendition is
      * registered immediately so subscribers can find the track even
      * before the first frame is written.
+     *
+     * Pass `bandwidth` to reserve this track's bitrate against the session's
+     * allocator. Following the grant waits on the Rust audio producer; this
+     * call only claims the share so a co-resident video encoder sizes itself
+     * against what is left.
      */
-    func publishAudio(name: String, input: MoqAudioEncoderInput, output: MoqAudioEncoderOutput) throws  -> MoqAudioProducer
+    func encodeAudio(name: String, input: MoqAudioEncoderInput, output: MoqAudioEncoderOutput, bandwidth: MoqBandwidth?) throws  -> MoqAudioProducer
     
     /**
      * Publish a JSON snapshot track (lossy latest-value) by name.
@@ -2018,6 +2446,15 @@ public protocol MoqBroadcastProducerProtocol: AnyObject, Sendable {
      * Publish a JSON stream track (lossless append-log) by name.
      */
     func publishJsonStream(name: String, config: MoqJsonStreamConfig) throws  -> MoqJsonStreamProducer
+    
+    /**
+     * Advertise this broadcast's exact path as a route.
+     *
+     * Announcing again re-prices the route in place. The path is already
+     * discoverable on this origin's local cursor; announce advertises it to peers. Errors with `Closed` on a standalone
+     * broadcast (no origin to announce on).
+     */
+    func announce(route: MoqRoute) throws 
     
     /**
      * Create a consumer that reads from this broadcast's tracks.
@@ -2039,43 +2476,63 @@ public protocol MoqBroadcastProducerProtocol: AnyObject, Sendable {
     func finish() throws 
     
     /**
-     * Create a new media track for this broadcast.
+     * Publish one audio codec as a new track.
      *
-     * The [`MoqInit`] format selects the codec (or container) for the init bytes and frame payloads;
-     * its hints seed the catalog. Hints apply to single-codec formats; container formats auto-detect
-     * every track.
+     * The track is named after the format (`0.opus`), so the catalog is how a subscriber finds it.
+     * [`MoqAudioInit::data`] is required: audio resolves its rendition entirely from those bytes.
      */
-    func publishMedia(`init`: MoqInit) throws  -> MoqMediaProducer
+    func publishAudio(`init`: MoqAudioInit) throws  -> MoqMediaProducer
     
     /**
-     * Publish media on a requested track from
-     * [`MoqBroadcastDynamic::requested_track`].
-     *
-     * The importer accepts the request, which is where the track's timescale is set.
-     * [`MoqInit`] carries the format, init bytes, and catalog hints. Only
-     * single-track formats are supported.
+     * Publish one audio codec onto a track requested through
+     * [`MoqBroadcastDynamic::requested_track`], which the importer accepts.
      */
-    func publishMediaOnTrack(request: MoqTrackRequest, `init`: MoqInit) throws  -> MoqMediaProducer
+    func publishAudioOnTrack(request: MoqTrackRequest, `init`: MoqAudioInit) throws  -> MoqMediaProducer
     
     /**
-     * Create a media track fed by a raw byte stream with unknown frame
-     * boundaries (e.g. piped Annex-B H.264 straight from an encoder).
+     * Publish a container, which demuxes and publishes its own tracks.
      *
-     * Unlike [`Self::publish_media`], the importer infers frame boundaries, so the caller just pushes
-     * bytes via [`MoqMediaStreamProducer::write`]. Only self-describing stream formats are supported
-     * (avc3, hev1, av01, fmp4, mkv). [`MoqInit`] carries the format, any
-     * seed bytes, and catalog hints.
+     * Unlike the codec entry points there is no label or hint: a container describes each track it
+     * publishes from its own metadata, so a rendition field would have no single track to land on.
      */
-    func publishMediaStream(`init`: MoqInit) throws  -> MoqMediaStreamProducer
+    func publishContainer(`init`: MoqContainerInit) throws  -> MoqContainerProducer
+    
+    /**
+     * Publish a container fed by a raw byte stream, which recovers its own framing.
+     */
+    func publishContainerStream(format: MoqContainerFormat) throws  -> MoqContainerStreamProducer
     
     /**
      * Create a track for arbitrary byte payloads, no codec or container.
      *
      * Same pattern as moq-boy's `status` and `command` tracks: raw UTF-8/JSON
      * bytes written directly to moq-lite groups with no media framing. `info` sets
-     * track properties (priority, latency_max, timescale); omit for defaults.
+     * track properties (priority, max age, timescale); omit for defaults.
      */
     func publishTrack(name: String, info: MoqTrackInfo?) throws  -> MoqTrackProducer
+    
+    /**
+     * Publish one video codec as a new track.
+     *
+     * Named as in [`publish_audio`](Self::publish_audio). [`MoqVideoInit::data`] may be empty for a
+     * format that resolves in band; a hint carrying the codec publishes the catalog before the
+     * first keyframe.
+     */
+    func publishVideo(`init`: MoqVideoInit) throws  -> MoqMediaProducer
+    
+    /**
+     * Publish one video codec onto a requested track. See
+     * [`publish_audio_on_track`](Self::publish_audio_on_track).
+     */
+    func publishVideoOnTrack(request: MoqTrackRequest, `init`: MoqVideoInit) throws  -> MoqMediaProducer
+    
+    /**
+     * Publish one video codec fed by a raw byte stream, inferring frame boundaries.
+     *
+     * Only the self-delimiting formats work here (`Avc3`, `Hev1`, `Av01`); the rest need length
+     * prefixes or an out-of-band config record. There is no audio counterpart for the same reason.
+     */
+    func publishVideoStream(`init`: MoqVideoInit) throws  -> MoqMediaStreamProducer
     
     /**
      * Remove a top-level application catalog section by name.
@@ -2085,32 +2542,15 @@ public protocol MoqBroadcastProducerProtocol: AnyObject, Sendable {
     func removeCatalogSection(name: String) throws 
     
     /**
-     * Set whether the broadcast is announced, keeping the rest of its route (hops, cost).
-     *
-     * The origin advertises the path only while announced; an unannounced
-     * broadcast stays reachable by exact path for subscribes and fetches. This is
-     * how a publisher goes on and off the air without tearing down the broadcast.
-     */
-    func setAnnounce(announce: Bool) throws 
-    
-    /**
      * Set (or replace) a top-level application catalog section by name.
      *
      * `json` is any JSON document (object, array, string, ...) serialized as a UTF-8 string.
      * Errors with [`MoqError::Json`] if `json` doesn't parse, or with the reserved-section
-     * error if `name` is `video`/`audio` (owned by the media pipeline). The section is
-     * republished on the catalog track immediately.
+     * error if `name` is a HANG root (`video`, `audio`, `text`, `archive`, `clock`, `json`,
+     * `binary`, or retired `timeline`) or an MSF root (`version`, `generatedAt`, `isComplete`,
+     * `tracks`, or `initDataList`). The section is republished on the catalog track immediately.
      */
     func setCatalogSection(name: String, json: String) throws 
-    
-    /**
-     * Update the broadcast's route: the hop chain, cost, and announce flag it advertises.
-     *
-     * Use this as conditions shift (e.g. a standby transcoder lowering its cost
-     * once it is warm); consumers observe the change via
-     * `MoqBroadcastConsumer::route_updates` and sessions forward it downstream.
-     */
-    func setRoute(route: MoqRoute) throws 
     
     /**
      * Replace the catalog properties shared by every video rendition.
@@ -2118,6 +2558,14 @@ public protocol MoqBroadcastProducerProtocol: AnyObject, Sendable {
      * Rotation is clockwise and normalized to the nearest quarter turn. An absent field is removed from the next catalog update.
      */
     func setVideoProperties(properties: MoqVideoProperties) throws 
+    
+    /**
+     * Retract this broadcast's exact-path advertisement, if any.
+     *
+     * The broadcast stays discoverable and reachable locally. Errors with `Closed` on a
+     * standalone broadcast (no origin to announce on).
+     */
+    func unannounce() throws 
     
     /**
      * Open a video track on this broadcast, encoding the raw frames written to
@@ -2128,8 +2576,13 @@ public protocol MoqBroadcastProducerProtocol: AnyObject, Sendable {
      * chooses the track name; `None` derives one from the codec. The catalog
      * rendition is published immediately so a subscriber can discover the track
      * before a frame is written to it.
+     *
+     * Pass `bandwidth` to reserve this track's configured bitrate against the
+     * session's allocator and follow the grant with the same policy the Rust
+     * capture encoder uses. [`set_bitrate`](MoqVideoProducer::set_bitrate) is
+     * the manual ceiling: it retunes the encoder and moves the reservation.
      */
-    func publishVideo(input: MoqVideoEncoderInput, output: MoqVideoEncoderOutput) throws  -> MoqVideoProducer
+    func encodeVideo(input: MoqVideoEncoderInput, output: MoqVideoEncoderOutput, bandwidth: MoqBandwidth?) throws  -> MoqVideoProducer
     
 }
 open class MoqBroadcastProducer: MoqBroadcastProducerProtocol, @unchecked Sendable {
@@ -2204,15 +2657,21 @@ public convenience init()throws  {
      * Open an audio track on this broadcast. The catalog rendition is
      * registered immediately so subscribers can find the track even
      * before the first frame is written.
+     *
+     * Pass `bandwidth` to reserve this track's bitrate against the session's
+     * allocator. Following the grant waits on the Rust audio producer; this
+     * call only claims the share so a co-resident video encoder sizes itself
+     * against what is left.
      */
-open func publishAudio(name: String, input: MoqAudioEncoderInput, output: MoqAudioEncoderOutput)throws  -> MoqAudioProducer  {
+open func encodeAudio(name: String, input: MoqAudioEncoderInput, output: MoqAudioEncoderOutput, bandwidth: MoqBandwidth? = nil)throws  -> MoqAudioProducer  {
     return try  FfiConverterTypeMoqAudioProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_audio(
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_encode_audio(
             self.uniffiCloneHandle(),
         FfiConverterString.lower(name),
         FfiConverterTypeMoqAudioEncoderInput_lower(input),
-        FfiConverterTypeMoqAudioEncoderOutput_lower(output),uniffiCallStatus
+        FfiConverterTypeMoqAudioEncoderOutput_lower(output),
+        FfiConverterOptionTypeMoqBandwidth.lower(bandwidth),uniffiCallStatus
     )
 })
 }
@@ -2246,6 +2705,22 @@ open func publishJsonStream(name: String, config: MoqJsonStreamConfig)throws  ->
         FfiConverterTypeMoqJsonStreamConfig_lower(config),uniffiCallStatus
     )
 })
+}
+    
+    /**
+     * Advertise this broadcast's exact path as a route.
+     *
+     * Announcing again re-prices the route in place. The path is already
+     * discoverable on this origin's local cursor; announce advertises it to peers. Errors with `Closed` on a standalone
+     * broadcast (no origin to announce on).
+     */
+open func announce(route: MoqRoute)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_announce(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeMoqRoute_lower(route),uniffiCallStatus
+    )
+}
 }
     
     /**
@@ -2288,56 +2763,61 @@ open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift)
 }
     
     /**
-     * Create a new media track for this broadcast.
+     * Publish one audio codec as a new track.
      *
-     * The [`MoqInit`] format selects the codec (or container) for the init bytes and frame payloads;
-     * its hints seed the catalog. Hints apply to single-codec formats; container formats auto-detect
-     * every track.
+     * The track is named after the format (`0.opus`), so the catalog is how a subscriber finds it.
+     * [`MoqAudioInit::data`] is required: audio resolves its rendition entirely from those bytes.
      */
-open func publishMedia(`init`: MoqInit)throws  -> MoqMediaProducer  {
+open func publishAudio(`init`: MoqAudioInit)throws  -> MoqMediaProducer  {
     return try  FfiConverterTypeMoqMediaProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_media(
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_audio(
             self.uniffiCloneHandle(),
-        FfiConverterTypeMoqInit_lower(`init`),uniffiCallStatus
+        FfiConverterTypeMoqAudioInit_lower(`init`),uniffiCallStatus
     )
 })
 }
     
     /**
-     * Publish media on a requested track from
-     * [`MoqBroadcastDynamic::requested_track`].
-     *
-     * The importer accepts the request, which is where the track's timescale is set.
-     * [`MoqInit`] carries the format, init bytes, and catalog hints. Only
-     * single-track formats are supported.
+     * Publish one audio codec onto a track requested through
+     * [`MoqBroadcastDynamic::requested_track`], which the importer accepts.
      */
-open func publishMediaOnTrack(request: MoqTrackRequest, `init`: MoqInit)throws  -> MoqMediaProducer  {
+open func publishAudioOnTrack(request: MoqTrackRequest, `init`: MoqAudioInit)throws  -> MoqMediaProducer  {
     return try  FfiConverterTypeMoqMediaProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_media_on_track(
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_audio_on_track(
             self.uniffiCloneHandle(),
         FfiConverterTypeMoqTrackRequest_lower(request),
-        FfiConverterTypeMoqInit_lower(`init`),uniffiCallStatus
+        FfiConverterTypeMoqAudioInit_lower(`init`),uniffiCallStatus
     )
 })
 }
     
     /**
-     * Create a media track fed by a raw byte stream with unknown frame
-     * boundaries (e.g. piped Annex-B H.264 straight from an encoder).
+     * Publish a container, which demuxes and publishes its own tracks.
      *
-     * Unlike [`Self::publish_media`], the importer infers frame boundaries, so the caller just pushes
-     * bytes via [`MoqMediaStreamProducer::write`]. Only self-describing stream formats are supported
-     * (avc3, hev1, av01, fmp4, mkv). [`MoqInit`] carries the format, any
-     * seed bytes, and catalog hints.
+     * Unlike the codec entry points there is no label or hint: a container describes each track it
+     * publishes from its own metadata, so a rendition field would have no single track to land on.
      */
-open func publishMediaStream(`init`: MoqInit)throws  -> MoqMediaStreamProducer  {
-    return try  FfiConverterTypeMoqMediaStreamProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+open func publishContainer(`init`: MoqContainerInit)throws  -> MoqContainerProducer  {
+    return try  FfiConverterTypeMoqContainerProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_media_stream(
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_container(
             self.uniffiCloneHandle(),
-        FfiConverterTypeMoqInit_lower(`init`),uniffiCallStatus
+        FfiConverterTypeMoqContainerInit_lower(`init`),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Publish a container fed by a raw byte stream, which recovers its own framing.
+     */
+open func publishContainerStream(format: MoqContainerFormat)throws  -> MoqContainerStreamProducer  {
+    return try  FfiConverterTypeMoqContainerStreamProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_container_stream(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeMoqContainerFormat_lower(format),uniffiCallStatus
     )
 })
 }
@@ -2347,7 +2827,7 @@ open func publishMediaStream(`init`: MoqInit)throws  -> MoqMediaStreamProducer  
      *
      * Same pattern as moq-boy's `status` and `command` tracks: raw UTF-8/JSON
      * bytes written directly to moq-lite groups with no media framing. `info` sets
-     * track properties (priority, latency_max, timescale); omit for defaults.
+     * track properties (priority, max age, timescale); omit for defaults.
      */
 open func publishTrack(name: String, info: MoqTrackInfo?)throws  -> MoqTrackProducer  {
     return try  FfiConverterTypeMoqTrackProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
@@ -2356,6 +2836,54 @@ open func publishTrack(name: String, info: MoqTrackInfo?)throws  -> MoqTrackProd
             self.uniffiCloneHandle(),
         FfiConverterString.lower(name),
         FfiConverterOptionTypeMoqTrackInfo.lower(info),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Publish one video codec as a new track.
+     *
+     * Named as in [`publish_audio`](Self::publish_audio). [`MoqVideoInit::data`] may be empty for a
+     * format that resolves in band; a hint carrying the codec publishes the catalog before the
+     * first keyframe.
+     */
+open func publishVideo(`init`: MoqVideoInit)throws  -> MoqMediaProducer  {
+    return try  FfiConverterTypeMoqMediaProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_video(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeMoqVideoInit_lower(`init`),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Publish one video codec onto a requested track. See
+     * [`publish_audio_on_track`](Self::publish_audio_on_track).
+     */
+open func publishVideoOnTrack(request: MoqTrackRequest, `init`: MoqVideoInit)throws  -> MoqMediaProducer  {
+    return try  FfiConverterTypeMoqMediaProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_video_on_track(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeMoqTrackRequest_lower(request),
+        FfiConverterTypeMoqVideoInit_lower(`init`),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Publish one video codec fed by a raw byte stream, inferring frame boundaries.
+     *
+     * Only the self-delimiting formats work here (`Avc3`, `Hev1`, `Av01`); the rest need length
+     * prefixes or an out-of-band config record. There is no audio counterpart for the same reason.
+     */
+open func publishVideoStream(`init`: MoqVideoInit)throws  -> MoqMediaStreamProducer  {
+    return try  FfiConverterTypeMoqMediaStreamProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_video_stream(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeMoqVideoInit_lower(`init`),uniffiCallStatus
     )
 })
 }
@@ -2375,28 +2903,13 @@ open func removeCatalogSection(name: String)throws   {try rustCallWithError(FfiC
 }
     
     /**
-     * Set whether the broadcast is announced, keeping the rest of its route (hops, cost).
-     *
-     * The origin advertises the path only while announced; an unannounced
-     * broadcast stays reachable by exact path for subscribes and fetches. This is
-     * how a publisher goes on and off the air without tearing down the broadcast.
-     */
-open func setAnnounce(announce: Bool)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
-        uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqbroadcastproducer_set_announce(
-            self.uniffiCloneHandle(),
-        FfiConverterBool.lower(announce),uniffiCallStatus
-    )
-}
-}
-    
-    /**
      * Set (or replace) a top-level application catalog section by name.
      *
      * `json` is any JSON document (object, array, string, ...) serialized as a UTF-8 string.
      * Errors with [`MoqError::Json`] if `json` doesn't parse, or with the reserved-section
-     * error if `name` is `video`/`audio` (owned by the media pipeline). The section is
-     * republished on the catalog track immediately.
+     * error if `name` is a HANG root (`video`, `audio`, `text`, `archive`, `clock`, `json`,
+     * `binary`, or retired `timeline`) or an MSF root (`version`, `generatedAt`, `isComplete`,
+     * `tracks`, or `initDataList`). The section is republished on the catalog track immediately.
      */
 open func setCatalogSection(name: String, json: String)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
@@ -2404,22 +2917,6 @@ open func setCatalogSection(name: String, json: String)throws   {try rustCallWit
             self.uniffiCloneHandle(),
         FfiConverterString.lower(name),
         FfiConverterString.lower(json),uniffiCallStatus
-    )
-}
-}
-    
-    /**
-     * Update the broadcast's route: the hop chain, cost, and announce flag it advertises.
-     *
-     * Use this as conditions shift (e.g. a standby transcoder lowering its cost
-     * once it is warm); consumers observe the change via
-     * `MoqBroadcastConsumer::route_updates` and sessions forward it downstream.
-     */
-open func setRoute(route: MoqRoute)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
-        uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqbroadcastproducer_set_route(
-            self.uniffiCloneHandle(),
-        FfiConverterTypeMoqRoute_lower(route),uniffiCallStatus
     )
 }
 }
@@ -2439,6 +2936,20 @@ open func setVideoProperties(properties: MoqVideoProperties)throws   {try rustCa
 }
     
     /**
+     * Retract this broadcast's exact-path advertisement, if any.
+     *
+     * The broadcast stays discoverable and reachable locally. Errors with `Closed` on a
+     * standalone broadcast (no origin to announce on).
+     */
+open func unannounce()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_unannounce(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+    /**
      * Open a video track on this broadcast, encoding the raw frames written to
      * it.
      *
@@ -2447,14 +2958,20 @@ open func setVideoProperties(properties: MoqVideoProperties)throws   {try rustCa
      * chooses the track name; `None` derives one from the codec. The catalog
      * rendition is published immediately so a subscriber can discover the track
      * before a frame is written to it.
+     *
+     * Pass `bandwidth` to reserve this track's configured bitrate against the
+     * session's allocator and follow the grant with the same policy the Rust
+     * capture encoder uses. [`set_bitrate`](MoqVideoProducer::set_bitrate) is
+     * the manual ceiling: it retunes the encoder and moves the reservation.
      */
-open func publishVideo(input: MoqVideoEncoderInput, output: MoqVideoEncoderOutput)throws  -> MoqVideoProducer  {
+open func encodeVideo(input: MoqVideoEncoderInput, output: MoqVideoEncoderOutput, bandwidth: MoqBandwidth? = nil)throws  -> MoqVideoProducer  {
     return try  FfiConverterTypeMoqVideoProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_video(
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_encode_video(
             self.uniffiCloneHandle(),
         FfiConverterTypeMoqVideoEncoderInput_lower(input),
-        FfiConverterTypeMoqVideoEncoderOutput_lower(output),uniffiCallStatus
+        FfiConverterTypeMoqVideoEncoderOutput_lower(output),
+        FfiConverterOptionTypeMoqBandwidth.lower(bandwidth),uniffiCallStatus
     )
 })
 }
@@ -2510,14 +3027,9 @@ public func FfiConverterTypeMoqBroadcastProducer_lower(_ value: MoqBroadcastProd
 
 
 /**
- * A pending dynamic broadcast request that must be accepted or aborted.
+ * A pending dynamic broadcast request that must be accepted or rejected.
  */
 public protocol MoqBroadcastRequestProtocol: AnyObject, Sendable {
-    
-    /**
-     * Abort the request with an application error code.
-     */
-    func abort(errorCode: UInt16) throws 
     
     /**
      * Accept the request with an unannounced broadcast.
@@ -2529,9 +3041,14 @@ public protocol MoqBroadcastRequestProtocol: AnyObject, Sendable {
      */
     func path() throws  -> String
     
+    /**
+     * Reject the request with an application error code.
+     */
+    func reject(errorCode: UInt16) throws 
+    
 }
 /**
- * A pending dynamic broadcast request that must be accepted or aborted.
+ * A pending dynamic broadcast request that must be accepted or rejected.
  */
 open class MoqBroadcastRequest: MoqBroadcastRequestProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
@@ -2587,18 +3104,6 @@ open class MoqBroadcastRequest: MoqBroadcastRequestProtocol, @unchecked Sendable
 
     
     /**
-     * Abort the request with an application error code.
-     */
-open func abort(errorCode: UInt16)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
-        uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqbroadcastrequest_abort(
-            self.uniffiCloneHandle(),
-        FfiConverterUInt16.lower(errorCode),uniffiCallStatus
-    )
-}
-}
-    
-    /**
      * Accept the request with an unannounced broadcast.
      */
 open func accept(broadcast: MoqBroadcastProducer)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
@@ -2620,6 +3125,18 @@ open func path()throws  -> String  {
             self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
+}
+    
+    /**
+     * Reject the request with an application error code.
+     */
+open func reject(errorCode: UInt16)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbroadcastrequest_reject(
+            self.uniffiCloneHandle(),
+        FfiConverterUInt16.lower(errorCode),uniffiCallStatus
+    )
+}
 }
     
 
@@ -2676,6 +3193,8 @@ public protocol MoqCatalogConsumerProtocol: AnyObject, Sendable {
     
     /**
      * Cancel all current and future `next()` calls.
+     *
+     * Terminal: the subscription is released here, not when the handle is.
      */
     func cancel() 
     
@@ -2740,6 +3259,8 @@ open class MoqCatalogConsumer: MoqCatalogConsumerProtocol, @unchecked Sendable {
     
     /**
      * Cancel all current and future `next()` calls.
+     *
+     * Terminal: the subscription is released here, not when the handle is.
      */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
@@ -2824,44 +3345,85 @@ public func FfiConverterTypeMoqCatalogConsumer_lower(_ value: MoqCatalogConsumer
  * The configuration differs by target, because the transport does. Native builds expose
  * the QUIC socket and TLS trust store; the browser owns both, so a wasm build exposes
  * only the certificate hashes WebTransport accepts.
+ *
+ * Setters write the configuration [`connect`](Self::connect) will snapshot. They fail
+ * with [`MoqError::Busy`] while a connect is in flight and [`MoqError::Cancelled`]
+ * after [`cancel`](Self::cancel). A finished connect does not freeze the handle: later
+ * setters apply to the next dial until cancel.
  */
 public protocol MoqClientProtocol: AnyObject, Sendable {
     
     /**
      * Cancel all current and future `connect()` calls.
+     *
+     * Terminal: the client's configuration and wired origins are released here, not when the
+     * handle is, so this client can't dial again.
      */
     func cancel() 
     
     /**
      * Connect to a MoQ server and wait for the session to be established.
      *
-     * Both origin sides are always accessible via [`MoqSession::publisher`] and
-     * [`MoqSession::consumer`], without the caller constructing a [`MoqOriginProducer`]
+     * The returned session automatically reconnects with backoff when the transport
+     * drops (unless disabled via [`set_reconnect`](Self::set_reconnect)), and broadcasts
+     * consumed through it ride out the gap. Watch [`MoqSession::status`] for the
+     * connect/disconnect transitions, [`MoqSession::epoch`] for the reconnect count,
+     * and [`MoqSession::closed`] for the connection giving up for good.
+     *
+     * Both origin sides are always accessible via [`MoqSession::publish`] and
+     * [`MoqSession::consume`], without the caller constructing a [`MoqOriginProducer`]
      * themselves. With neither [`set_publish`](Self::set_publish) nor
      * [`set_consume`](Self::set_consume) wired, the two sides share one origin, so a broadcast
      * announced on this session is also discoverable through it. Wiring either side opts out of
      * that and gives the other side its own fresh origin.
      *
-     * Can be cancelled by calling `cancel()`.
+     * Can be cancelled by calling `cancel()`, including while the initial dial is retrying.
      */
     func connect(url: String) async throws  -> MoqSession
     
     /**
+     * Configure retry pacing for the automatic reconnect (see [`MoqBackoff`]).
+     */
+    func setBackoff(backoff: MoqBackoff) throws 
+    
+    /**
      * Set the local UDP socket bind address. Defaults to `[::]:0`.
      *
-     * Returns an error if the address cannot be parsed.
+     * Returns an error if the address cannot be parsed, if a connect is in flight,
+     * or after [`cancel`](Self::cancel).
      */
     func setBind(addr: String) throws 
     
     /**
      * Set the origin to consume remote broadcasts from the remote.
      */
-    func setConsume(origin: MoqOriginProducer?) 
+    func setConsume(origin: MoqOriginProducer?) throws 
     
     /**
      * Set the origin to publish local broadcasts to the remote.
      */
-    func setPublish(origin: MoqOriginProducer?) 
+    func setPublish(origin: MoqOriginProducer?) throws 
+    
+    /**
+     * Cap the concurrent QUIC streams the peer may open toward this connection.
+     * Defaults to 1024.
+     *
+     * MoQ opens a stream per group, and for a subscriber those arrive from the relay,
+     * so a client subscribing to many tracks wants this raised. A publisher's own
+     * streams are bounded by the peer's advertised limit, not this one. Ignored by
+     * the WebSocket fallback.
+     */
+    func setQuicMaxStreams(maxStreams: UInt64) throws 
+    
+    /**
+     * Enable or disable automatic reconnecting. Enabled by default.
+     *
+     * When enabled, the session returned by [`connect`](Self::connect) redials with
+     * backoff whenever the transport drops, and broadcasts consumed through it survive
+     * the gap. Disable for a one-shot dial: the transport's close then ends the session
+     * (surfaced via [`MoqSession::closed`]).
+     */
+    func setReconnect(enabled: Bool) throws 
     
     /**
      * Present this PEM certificate chain when the relay requires mTLS.
@@ -2870,12 +3432,7 @@ public protocol MoqClientProtocol: AnyObject, Sendable {
      * paired with `set_tls_key`, otherwise `connect` fails with an incomplete-auth error.
      * Pass `None` to clear a previously set path.
      */
-    func setTlsCert(path: String?) 
-    
-    /**
-     * Disable TLS certificate verification (for development only).
-     */
-    func setTlsDisableVerify(disable: Bool) 
+    func setTlsCert(path: String?) throws 
     
     /**
      * Pin the peer to a certificate with one of these SHA-256 fingerprints, encoded as hex.
@@ -2885,7 +3442,7 @@ public protocol MoqClientProtocol: AnyObject, Sendable {
      * to trust a self-signed certificate without disabling verification. An empty list clears
      * any pinned fingerprints.
      */
-    func setTlsFingerprints(fingerprints: [String]) 
+    func setTlsFingerprints(fingerprints: [String]) throws 
     
     /**
      * Present this PEM private key when the relay requires mTLS.
@@ -2894,7 +3451,7 @@ public protocol MoqClientProtocol: AnyObject, Sendable {
      * paired with `set_tls_cert`, otherwise `connect` fails with an incomplete-auth error.
      * Pass `None` to clear a previously set path.
      */
-    func setTlsKey(path: String?) 
+    func setTlsKey(path: String?) throws 
     
     /**
      * Trust these PEM root certificate file(s) instead of the system roots.
@@ -2902,7 +3459,7 @@ public protocol MoqClientProtocol: AnyObject, Sendable {
      * Pass the paths to PEM-encoded CA certificates. An empty list restores the
      * default behavior of using the platform's native root store.
      */
-    func setTlsRoots(paths: [String]) 
+    func setTlsRoots(paths: [String]) throws 
     
     /**
      * Configure whether to also trust the platform's native root certificates.
@@ -2911,7 +3468,12 @@ public protocol MoqClientProtocol: AnyObject, Sendable {
      * Set this to `true` to trust system roots in addition to roots from
      * `set_tls_roots`, or `false` to trust only custom roots.
      */
-    func setTlsSystemRoots(systemRoots: Bool) 
+    func setTlsSystemRoots(systemRoots: Bool) throws 
+    
+    /**
+     * Enable or disable TLS certificate verification.
+     */
+    func setTlsVerify(verify: Bool) throws 
     
 }
 /**
@@ -2920,6 +3482,11 @@ public protocol MoqClientProtocol: AnyObject, Sendable {
  * The configuration differs by target, because the transport does. Native builds expose
  * the QUIC socket and TLS trust store; the browser owns both, so a wasm build exposes
  * only the certificate hashes WebTransport accepts.
+ *
+ * Setters write the configuration [`connect`](Self::connect) will snapshot. They fail
+ * with [`MoqError::Busy`] while a connect is in flight and [`MoqError::Cancelled`]
+ * after [`cancel`](Self::cancel). A finished connect does not freeze the handle: later
+ * setters apply to the next dial until cancel.
  */
 open class MoqClient: MoqClientProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
@@ -2987,6 +3554,9 @@ public convenience init() {
     
     /**
      * Cancel all current and future `connect()` calls.
+     *
+     * Terminal: the client's configuration and wired origins are released here, not when the
+     * handle is, so this client can't dial again.
      */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
@@ -2999,14 +3569,20 @@ open func cancel()  {try! rustCall() {
     /**
      * Connect to a MoQ server and wait for the session to be established.
      *
-     * Both origin sides are always accessible via [`MoqSession::publisher`] and
-     * [`MoqSession::consumer`], without the caller constructing a [`MoqOriginProducer`]
+     * The returned session automatically reconnects with backoff when the transport
+     * drops (unless disabled via [`set_reconnect`](Self::set_reconnect)), and broadcasts
+     * consumed through it ride out the gap. Watch [`MoqSession::status`] for the
+     * connect/disconnect transitions, [`MoqSession::epoch`] for the reconnect count,
+     * and [`MoqSession::closed`] for the connection giving up for good.
+     *
+     * Both origin sides are always accessible via [`MoqSession::publish`] and
+     * [`MoqSession::consume`], without the caller constructing a [`MoqOriginProducer`]
      * themselves. With neither [`set_publish`](Self::set_publish) nor
      * [`set_consume`](Self::set_consume) wired, the two sides share one origin, so a broadcast
      * announced on this session is also discoverable through it. Wiring either side opts out of
      * that and gives the other side its own fresh origin.
      *
-     * Can be cancelled by calling `cancel()`.
+     * Can be cancelled by calling `cancel()`, including while the initial dial is retrying.
      */
 open func connect(url: String)async throws  -> MoqSession  {
     return
@@ -3025,9 +3601,22 @@ open func connect(url: String)async throws  -> MoqSession  {
 }
     
     /**
+     * Configure retry pacing for the automatic reconnect (see [`MoqBackoff`]).
+     */
+open func setBackoff(backoff: MoqBackoff)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqclient_set_backoff(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeMoqBackoff_lower(backoff),uniffiCallStatus
+    )
+}
+}
+    
+    /**
      * Set the local UDP socket bind address. Defaults to `[::]:0`.
      *
-     * Returns an error if the address cannot be parsed.
+     * Returns an error if the address cannot be parsed, if a connect is in flight,
+     * or after [`cancel`](Self::cancel).
      */
 open func setBind(addr: String)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
@@ -3041,7 +3630,7 @@ open func setBind(addr: String)throws   {try rustCallWithError(FfiConverterTypeM
     /**
      * Set the origin to consume remote broadcasts from the remote.
      */
-open func setConsume(origin: MoqOriginProducer?)  {try! rustCall() {
+open func setConsume(origin: MoqOriginProducer?)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_consume(
             self.uniffiCloneHandle(),
@@ -3053,11 +3642,46 @@ open func setConsume(origin: MoqOriginProducer?)  {try! rustCall() {
     /**
      * Set the origin to publish local broadcasts to the remote.
      */
-open func setPublish(origin: MoqOriginProducer?)  {try! rustCall() {
+open func setPublish(origin: MoqOriginProducer?)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_publish(
             self.uniffiCloneHandle(),
         FfiConverterOptionTypeMoqOriginProducer.lower(origin),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Cap the concurrent QUIC streams the peer may open toward this connection.
+     * Defaults to 1024.
+     *
+     * MoQ opens a stream per group, and for a subscriber those arrive from the relay,
+     * so a client subscribing to many tracks wants this raised. A publisher's own
+     * streams are bounded by the peer's advertised limit, not this one. Ignored by
+     * the WebSocket fallback.
+     */
+open func setQuicMaxStreams(maxStreams: UInt64)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqclient_set_quic_max_streams(
+            self.uniffiCloneHandle(),
+        FfiConverterUInt64.lower(maxStreams),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Enable or disable automatic reconnecting. Enabled by default.
+     *
+     * When enabled, the session returned by [`connect`](Self::connect) redials with
+     * backoff whenever the transport drops, and broadcasts consumed through it survive
+     * the gap. Disable for a one-shot dial: the transport's close then ends the session
+     * (surfaced via [`MoqSession::closed`]).
+     */
+open func setReconnect(enabled: Bool)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqclient_set_reconnect(
+            self.uniffiCloneHandle(),
+        FfiConverterBool.lower(enabled),uniffiCallStatus
     )
 }
 }
@@ -3069,23 +3693,11 @@ open func setPublish(origin: MoqOriginProducer?)  {try! rustCall() {
      * paired with `set_tls_key`, otherwise `connect` fails with an incomplete-auth error.
      * Pass `None` to clear a previously set path.
      */
-open func setTlsCert(path: String?)  {try! rustCall() {
+open func setTlsCert(path: String?)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_tls_cert(
             self.uniffiCloneHandle(),
         FfiConverterOptionString.lower(path),uniffiCallStatus
-    )
-}
-}
-    
-    /**
-     * Disable TLS certificate verification (for development only).
-     */
-open func setTlsDisableVerify(disable: Bool)  {try! rustCall() {
-        uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqclient_set_tls_disable_verify(
-            self.uniffiCloneHandle(),
-        FfiConverterBool.lower(disable),uniffiCallStatus
     )
 }
 }
@@ -3098,7 +3710,7 @@ open func setTlsDisableVerify(disable: Bool)  {try! rustCall() {
      * to trust a self-signed certificate without disabling verification. An empty list clears
      * any pinned fingerprints.
      */
-open func setTlsFingerprints(fingerprints: [String])  {try! rustCall() {
+open func setTlsFingerprints(fingerprints: [String])throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_tls_fingerprints(
             self.uniffiCloneHandle(),
@@ -3114,7 +3726,7 @@ open func setTlsFingerprints(fingerprints: [String])  {try! rustCall() {
      * paired with `set_tls_cert`, otherwise `connect` fails with an incomplete-auth error.
      * Pass `None` to clear a previously set path.
      */
-open func setTlsKey(path: String?)  {try! rustCall() {
+open func setTlsKey(path: String?)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_tls_key(
             self.uniffiCloneHandle(),
@@ -3129,7 +3741,7 @@ open func setTlsKey(path: String?)  {try! rustCall() {
      * Pass the paths to PEM-encoded CA certificates. An empty list restores the
      * default behavior of using the platform's native root store.
      */
-open func setTlsRoots(paths: [String])  {try! rustCall() {
+open func setTlsRoots(paths: [String])throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_tls_roots(
             self.uniffiCloneHandle(),
@@ -3145,11 +3757,23 @@ open func setTlsRoots(paths: [String])  {try! rustCall() {
      * Set this to `true` to trust system roots in addition to roots from
      * `set_tls_roots`, or `false` to trust only custom roots.
      */
-open func setTlsSystemRoots(systemRoots: Bool)  {try! rustCall() {
+open func setTlsSystemRoots(systemRoots: Bool)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqclient_set_tls_system_roots(
             self.uniffiCloneHandle(),
         FfiConverterBool.lower(systemRoots),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Enable or disable TLS certificate verification.
+     */
+open func setTlsVerify(verify: Bool)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqclient_set_tls_verify(
+            self.uniffiCloneHandle(),
+        FfiConverterBool.lower(verify),uniffiCallStatus
     )
 }
 }
@@ -3204,8 +3828,342 @@ public func FfiConverterTypeMoqClient_lower(_ value: MoqClient) -> UInt64 {
 
 
 
+public protocol MoqContainerProducerProtocol: AnyObject, Sendable {
+    
+    /**
+     * Declare that the next chunk starts a new segment, rolling a group on every track this
+     * publishes.
+     *
+     * For a caller that knows its source's segmentation out of band. An fMP4 source carrying
+     * `styp` atoms declares its own, so this is only needed when it doesn't, and formats with no
+     * segment concept (MKV, TS, FLV) ignore it.
+     */
+    func cut() throws 
+    
+    /**
+     * Finish every track this container publishes.
+     */
+    func finish() throws 
+    
+    /**
+     * Start a new segment and number its groups `sequence`.
+     */
+    func seek(sequence: UInt64) throws 
+    
+    /**
+     * Write a whole chunk of the container.
+     *
+     * No timestamp: a container carries its tracks' timing itself, and the importer reads it out
+     * rather than taking the caller's word for it.
+     */
+    func write(payload: Data) throws 
+    
+}
+open class MoqContainerProducer: MoqContainerProducerProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_moq_ffi_fn_clone_moqcontainerproducer(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_moq_ffi_fn_free_moqcontainerproducer(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Declare that the next chunk starts a new segment, rolling a group on every track this
+     * publishes.
+     *
+     * For a caller that knows its source's segmentation out of band. An fMP4 source carrying
+     * `styp` atoms declares its own, so this is only needed when it doesn't, and formats with no
+     * segment concept (MKV, TS, FLV) ignore it.
+     */
+open func cut()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqcontainerproducer_cut(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Finish every track this container publishes.
+     */
+open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqcontainerproducer_finish(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Start a new segment and number its groups `sequence`.
+     */
+open func seek(sequence: UInt64)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqcontainerproducer_seek(
+            self.uniffiCloneHandle(),
+        FfiConverterUInt64.lower(sequence),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Write a whole chunk of the container.
+     *
+     * No timestamp: a container carries its tracks' timing itself, and the importer reads it out
+     * rather than taking the caller's word for it.
+     */
+open func write(payload: Data)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqcontainerproducer_write(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(payload),uniffiCallStatus
+    )
+}
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqContainerProducer: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = MoqContainerProducer
+
+    public static func lift(_ handle: UInt64) throws -> MoqContainerProducer {
+        return MoqContainerProducer(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: MoqContainerProducer) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqContainerProducer {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: MoqContainerProducer, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqContainerProducer_lift(_ handle: UInt64) throws -> MoqContainerProducer {
+    return try FfiConverterTypeMoqContainerProducer.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqContainerProducer_lower(_ value: MoqContainerProducer) -> UInt64 {
+    return FfiConverterTypeMoqContainerProducer.lower(value)
+}
+
+
+
+
+
+
+public protocol MoqContainerStreamProducerProtocol: AnyObject, Sendable {
+    
+    /**
+     * Finish every track this container publishes.
+     */
+    func finish() throws 
+    
+    /**
+     * Push raw container bytes. The importer recovers its own framing, so callers can write
+     * arbitrary chunks.
+     */
+    func write(payload: Data) throws 
+    
+}
+open class MoqContainerStreamProducer: MoqContainerStreamProducerProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_moq_ffi_fn_clone_moqcontainerstreamproducer(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_moq_ffi_fn_free_moqcontainerstreamproducer(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Finish every track this container publishes.
+     */
+open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqcontainerstreamproducer_finish(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Push raw container bytes. The importer recovers its own framing, so callers can write
+     * arbitrary chunks.
+     */
+open func write(payload: Data)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqcontainerstreamproducer_write(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(payload),uniffiCallStatus
+    )
+}
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqContainerStreamProducer: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = MoqContainerStreamProducer
+
+    public static func lift(_ handle: UInt64) throws -> MoqContainerStreamProducer {
+        return MoqContainerStreamProducer(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: MoqContainerStreamProducer) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqContainerStreamProducer {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: MoqContainerStreamProducer, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqContainerStreamProducer_lift(_ handle: UInt64) throws -> MoqContainerStreamProducer {
+    return try FfiConverterTypeMoqContainerStreamProducer.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqContainerStreamProducer_lower(_ value: MoqContainerStreamProducer) -> UInt64 {
+    return FfiConverterTypeMoqContainerStreamProducer.lower(value)
+}
+
+
+
+
+
+
 public protocol MoqGroupConsumerProtocol: AnyObject, Sendable {
     
+    /**
+     * Cancel all current and future `read_frame()` calls.
+     *
+     * Terminal: the group and whatever it still buffers are released here, not when the handle is.
+     */
     func cancel() 
     
     /**
@@ -3274,6 +4232,11 @@ open class MoqGroupConsumer: MoqGroupConsumerProtocol, @unchecked Sendable {
     
 
     
+    /**
+     * Cancel all current and future `read_frame()` calls.
+     *
+     * Terminal: the group and whatever it still buffers are released here, not when the handle is.
+     */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqgroupconsumer_cancel(
@@ -3379,6 +4342,8 @@ public protocol MoqGroupProducerProtocol: AnyObject, Sendable {
     
     /**
      * Mark the group as complete. No more frames can be written.
+     *
+     * The handle remains so a later [`abort`](Self::abort) can still run.
      */
     func finish() throws 
     
@@ -3475,6 +4440,8 @@ open func consume()throws  -> MoqGroupConsumer  {
     
     /**
      * Mark the group as complete. No more frames can be written.
+     *
+     * The handle remains so a later [`abort`](Self::abort) can still run.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
@@ -3748,6 +4715,8 @@ public protocol MoqJsonSnapshotConsumerProtocol: AnyObject, Sendable {
     
     /**
      * Cancel all current and future `next()` calls.
+     *
+     * Terminal: the subscription is released here, not when the handle is.
      */
     func cancel() 
     
@@ -3817,6 +4786,8 @@ open class MoqJsonSnapshotConsumer: MoqJsonSnapshotConsumerProtocol, @unchecked 
     
     /**
      * Cancel all current and future `next()` calls.
+     *
+     * Terminal: the subscription is released here, not when the handle is.
      */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
@@ -4051,6 +5022,8 @@ public protocol MoqJsonStreamConsumerProtocol: AnyObject, Sendable {
     
     /**
      * Cancel all current and future `next()` calls.
+     *
+     * Terminal: the subscription is released here, not when the handle is.
      */
     func cancel() 
     
@@ -4118,6 +5091,8 @@ open class MoqJsonStreamConsumer: MoqJsonStreamConsumerProtocol, @unchecked Send
     
     /**
      * Cancel all current and future `next()` calls.
+     *
+     * Terminal: the subscription is released here, not when the handle is.
      */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
@@ -4345,6 +5320,8 @@ public protocol MoqMediaConsumerProtocol: AnyObject, Sendable {
     
     /**
      * Cancel all current and future `next()` calls.
+     *
+     * Terminal: the subscription is released here, not when the handle is.
      */
     func cancel() 
     
@@ -4409,6 +5386,8 @@ open class MoqMediaConsumer: MoqMediaConsumerProtocol, @unchecked Sendable {
     
     /**
      * Cancel all current and future `next()` calls.
+     *
+     * Terminal: the subscription is released here, not when the handle is.
      */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
@@ -4495,6 +5474,8 @@ public protocol MoqMediaGroupConsumerProtocol: AnyObject, Sendable {
     
     /**
      * Cancel all current and future `next()` calls.
+     *
+     * Terminal: the subscription is released here, not when the handle is.
      */
     func cancel() 
     
@@ -4568,6 +5549,8 @@ open class MoqMediaGroupConsumer: MoqMediaGroupConsumerProtocol, @unchecked Send
     
     /**
      * Cancel all current and future `next()` calls.
+     *
+     * Terminal: the subscription is released here, not when the handle is.
      */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
@@ -4661,36 +5644,48 @@ public func FfiConverterTypeMoqMediaGroupConsumer_lower(_ value: MoqMediaGroupCo
 public protocol MoqMediaProducerProtocol: AnyObject, Sendable {
     
     /**
-     * Finish this media track and finalize encoding.
+     * Draw a group boundary here.
+     *
+     * Audio has no boundary of its own (every packet is independently decodable), so this is the
+     * only thing that gives it groups: call it after every frame for one group (one QUIC stream)
+     * the relay forwards without waiting, or at a segment cadence to align with video for
+     * HLS/DASH. Video groups at its own keyframes and needs this only to override that.
+     */
+    func cut() throws 
+    
+    /**
+     * Finish this track and finalize encoding.
      */
     func finish() throws 
     
     /**
-     * Return the name of the media track.
-     *
-     * Errors for a multi-track container source, which has no single track name.
+     * The name of the track this publishes.
      */
     func name() throws  -> String
     
     /**
-     * Wait until this media track has no active consumers.
+     * Draw a group boundary and number the next group `sequence`.
      *
-     * Errors for a multi-track container source, which has no single demand.
+     * [`cut`](Self::cut) with an explicit sequence, for a publisher whose group numbers have to
+     * be deterministic: two encoders aligning per GOP so a consumer can fail over between them.
+     */
+    func seek(sequence: UInt64) throws 
+    
+    /**
+     * Wait until this track has no active consumers.
      */
     func unused() async throws 
     
     /**
-     * Wait until this media track has at least one active consumer.
-     *
-     * Errors for a multi-track container source, which has no single demand.
+     * Wait until this track has at least one active consumer.
      */
     func used() async throws 
     
     /**
-     * Write `frame` to this media track.
+     * Write `frame` to this track.
      *
-     * The importer derives keyframe status from the bitstream, so a [`MoqFrame`] carries only
-     * the payload and its timestamp.
+     * The importer derives keyframe status from the bitstream, so a [`MoqFrame`] carries only the
+     * payload and its timestamp.
      */
     func writeFrame(frame: MoqFrame) throws 
     
@@ -4749,7 +5744,23 @@ open class MoqMediaProducer: MoqMediaProducerProtocol, @unchecked Sendable {
 
     
     /**
-     * Finish this media track and finalize encoding.
+     * Draw a group boundary here.
+     *
+     * Audio has no boundary of its own (every packet is independently decodable), so this is the
+     * only thing that gives it groups: call it after every frame for one group (one QUIC stream)
+     * the relay forwards without waiting, or at a segment cadence to align with video for
+     * HLS/DASH. Video groups at its own keyframes and needs this only to override that.
+     */
+open func cut()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqmediaproducer_cut(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Finish this track and finalize encoding.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
@@ -4760,9 +5771,7 @@ open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift)
 }
     
     /**
-     * Return the name of the media track.
-     *
-     * Errors for a multi-track container source, which has no single track name.
+     * The name of the track this publishes.
      */
 open func name()throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
@@ -4774,9 +5783,22 @@ open func name()throws  -> String  {
 }
     
     /**
-     * Wait until this media track has no active consumers.
+     * Draw a group boundary and number the next group `sequence`.
      *
-     * Errors for a multi-track container source, which has no single demand.
+     * [`cut`](Self::cut) with an explicit sequence, for a publisher whose group numbers have to
+     * be deterministic: two encoders aligning per GOP so a consumer can fail over between them.
+     */
+open func seek(sequence: UInt64)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqmediaproducer_seek(
+            self.uniffiCloneHandle(),
+        FfiConverterUInt64.lower(sequence),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Wait until this track has no active consumers.
      */
 open func unused()async throws   {
     return
@@ -4795,9 +5817,7 @@ open func unused()async throws   {
 }
     
     /**
-     * Wait until this media track has at least one active consumer.
-     *
-     * Errors for a multi-track container source, which has no single demand.
+     * Wait until this track has at least one active consumer.
      */
 open func used()async throws   {
     return
@@ -4816,10 +5836,10 @@ open func used()async throws   {
 }
     
     /**
-     * Write `frame` to this media track.
+     * Write `frame` to this track.
      *
-     * The importer derives keyframe status from the bitstream, so a [`MoqFrame`] carries only
-     * the payload and its timestamp.
+     * The importer derives keyframe status from the bitstream, so a [`MoqFrame`] carries only the
+     * payload and its timestamp.
      */
 open func writeFrame(frame: MoqFrame)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
@@ -4885,16 +5905,16 @@ public protocol MoqMediaStreamProducerProtocol: AnyObject, Sendable {
     /**
      * Finalize the track.
      *
-     * The importer emits each access unit when the *next* one's start code
-     * arrives, so a trailing access unit with no following delimiter (e.g. the
-     * last frame at EOF) is not emitted. This matches moq-cli's stdin path.
+     * The importer emits each access unit when the *next* one's start code arrives, so a trailing
+     * access unit with no following delimiter (e.g. the last frame at EOF) is not emitted. This
+     * matches moq-cli's stdin path.
      */
     func finish() throws 
     
     /**
-     * Push raw stream bytes (e.g. Annex-B H.264 from an encoder). The importer
-     * frames whole access units and keeps any partial trailing frame for the
-     * next call, so callers can write arbitrary chunks.
+     * Push raw stream bytes (e.g. Annex-B H.264 from an encoder). The importer frames whole access
+     * units and keeps any partial trailing frame for the next call, so callers can write arbitrary
+     * chunks.
      */
     func write(payload: Data) throws 
     
@@ -4955,9 +5975,9 @@ open class MoqMediaStreamProducer: MoqMediaStreamProducerProtocol, @unchecked Se
     /**
      * Finalize the track.
      *
-     * The importer emits each access unit when the *next* one's start code
-     * arrives, so a trailing access unit with no following delimiter (e.g. the
-     * last frame at EOF) is not emitted. This matches moq-cli's stdin path.
+     * The importer emits each access unit when the *next* one's start code arrives, so a trailing
+     * access unit with no following delimiter (e.g. the last frame at EOF) is not emitted. This
+     * matches moq-cli's stdin path.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
@@ -4968,9 +5988,9 @@ open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift)
 }
     
     /**
-     * Push raw stream bytes (e.g. Annex-B H.264 from an encoder). The importer
-     * frames whole access units and keeps any partial trailing frame for the
-     * next call, so callers can write arbitrary chunks.
+     * Push raw stream bytes (e.g. Annex-B H.264 from an encoder). The importer frames whole access
+     * units and keeps any partial trailing frame for the next call, so callers can write arbitrary
+     * chunks.
      */
 open func write(payload: Data)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
@@ -5034,25 +6054,28 @@ public func FfiConverterTypeMoqMediaStreamProducer_lower(_ value: MoqMediaStream
 public protocol MoqOriginConsumerProtocol: AnyObject, Sendable {
     
     /**
-     * Subscribe to all broadcast announcements under a prefix.
+     * Subscribe to routes matching a pattern scope; updates stay relative to the origin.
      */
-    func announced(prefix: String) throws  -> MoqAnnounced
+    func announced(config: MoqAnnounceConfig) throws  -> MoqAnnounceConsumer
     
     /**
-     * Wait for a specific broadcast to be announced by path.
+     * Resolve the broadcast at `path`, waiting until something can serve it.
      *
      * This is how you resolve a path right after connecting: announcements arrive over the
-     * session after it opens, so `request_broadcast` on its own races them.
+     * session after it opens, so `request_broadcast` on its own races them. A
+     * local broadcast appears on this origin's cursor when created, whether or not
+     * it has been advertised to peers.
      */
     func announcedBroadcast(path: String) throws  -> MoqAnnouncedBroadcast
     
     /**
      * Request a broadcast by path, resolving as soon as it can be served.
      *
-     * Returns a broadcast already reachable by exact path immediately, whether announced or not;
-     * otherwise falls back to a dynamic handler on the origin (if any) and resolves once it serves
-     * the broadcast, or errors if nothing can serve it. Unlike `announced_broadcast`, this does
-     * *not* wait indefinitely for a future announcement. Drop the returned future to cancel.
+     * Resolution order: a local broadcast at the exact path, then the best announced route
+     * covering the path (served on demand by the session that announced it), then a dynamic
+     * handler on the origin (if any). Unlike `announced_broadcast`, this answers for what is
+     * reachable *now* and errors if nothing can serve the path. Drop the returned future to
+     * cancel.
      *
      * Calling this straight after connecting therefore races the session's announcements
      * and can report a live broadcast as unroutable. Await `announced_broadcast` first.
@@ -5114,23 +6137,25 @@ open class MoqOriginConsumer: MoqOriginConsumerProtocol, @unchecked Sendable {
 
     
     /**
-     * Subscribe to all broadcast announcements under a prefix.
+     * Subscribe to routes matching a pattern scope; updates stay relative to the origin.
      */
-open func announced(prefix: String)throws  -> MoqAnnounced  {
-    return try  FfiConverterTypeMoqAnnounced_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+open func announced(config: MoqAnnounceConfig)throws  -> MoqAnnounceConsumer  {
+    return try  FfiConverterTypeMoqAnnounceConsumer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqoriginconsumer_announced(
             self.uniffiCloneHandle(),
-        FfiConverterString.lower(prefix),uniffiCallStatus
+        FfiConverterTypeMoqAnnounceConfig_lower(config),uniffiCallStatus
     )
 })
 }
     
     /**
-     * Wait for a specific broadcast to be announced by path.
+     * Resolve the broadcast at `path`, waiting until something can serve it.
      *
      * This is how you resolve a path right after connecting: announcements arrive over the
-     * session after it opens, so `request_broadcast` on its own races them.
+     * session after it opens, so `request_broadcast` on its own races them. A
+     * local broadcast appears on this origin's cursor when created, whether or not
+     * it has been advertised to peers.
      */
 open func announcedBroadcast(path: String)throws  -> MoqAnnouncedBroadcast  {
     return try  FfiConverterTypeMoqAnnouncedBroadcast_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
@@ -5145,10 +6170,11 @@ open func announcedBroadcast(path: String)throws  -> MoqAnnouncedBroadcast  {
     /**
      * Request a broadcast by path, resolving as soon as it can be served.
      *
-     * Returns a broadcast already reachable by exact path immediately, whether announced or not;
-     * otherwise falls back to a dynamic handler on the origin (if any) and resolves once it serves
-     * the broadcast, or errors if nothing can serve it. Unlike `announced_broadcast`, this does
-     * *not* wait indefinitely for a future announcement. Drop the returned future to cancel.
+     * Resolution order: a local broadcast at the exact path, then the best announced route
+     * covering the path (served on demand by the session that announced it), then a dynamic
+     * handler on the origin (if any). Unlike `announced_broadcast`, this answers for what is
+     * reachable *now* and errors if nothing can serve the path. Drop the returned future to
+     * cancel.
      *
      * Calling this straight after connecting therefore races the session's announcements
      * and can report a live broadcast as unroutable. Await `announced_broadcast` first.
@@ -5220,26 +6246,37 @@ public func FfiConverterTypeMoqOriginConsumer_lower(_ value: MoqOriginConsumer) 
 
 
 /**
- * A dynamic origin handler that serves broadcast requests not resolved by an existing route.
+ * A served route: advertises a path prefix and yields the broadcast requests
+ * beneath it for the application to accept or reject.
  */
 public protocol MoqOriginDynamicProtocol: AnyObject, Sendable {
     
     /**
-     * Stop serving dynamic requests and cancel all current `requested_broadcast()` calls.
+     * Stop serving and retract the route. Terminal: this handler is released
+     * here, not when the handle is, so pending requests are rejected before
+     * this returns.
      */
     func cancel() 
     
     /**
-     * Wait for the next requested broadcast that is not announced.
+     * Wait for the next requested broadcast no local broadcast resolves under
+     * this handle's prefix.
      *
-     * Returns a [`MoqBroadcastRequest`]: accept it with a broadcast producer or abort
+     * Returns a [`MoqBroadcastRequest`]: accept it with a broadcast producer or reject
      * it with an application error code. The requesting consumer stays pending until then.
      */
     func requestedBroadcast() async throws  -> MoqBroadcastRequest
     
+    /**
+     * Re-price the route in place: replace its hops and costs. The prefix cannot
+     * change; call `dynamic` again instead.
+     */
+    func update(route: MoqRoute) throws 
+    
 }
 /**
- * A dynamic origin handler that serves broadcast requests not resolved by an existing route.
+ * A served route: advertises a path prefix and yields the broadcast requests
+ * beneath it for the application to accept or reject.
  */
 open class MoqOriginDynamic: MoqOriginDynamicProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
@@ -5295,7 +6332,9 @@ open class MoqOriginDynamic: MoqOriginDynamicProtocol, @unchecked Sendable {
 
     
     /**
-     * Stop serving dynamic requests and cancel all current `requested_broadcast()` calls.
+     * Stop serving and retract the route. Terminal: this handler is released
+     * here, not when the handle is, so pending requests are rejected before
+     * this returns.
      */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
@@ -5306,9 +6345,10 @@ open func cancel()  {try! rustCall() {
 }
     
     /**
-     * Wait for the next requested broadcast that is not announced.
+     * Wait for the next requested broadcast no local broadcast resolves under
+     * this handle's prefix.
      *
-     * Returns a [`MoqBroadcastRequest`]: accept it with a broadcast producer or abort
+     * Returns a [`MoqBroadcastRequest`]: accept it with a broadcast producer or reject
      * it with an application error code. The requesting consumer stays pending until then.
      */
 open func requestedBroadcast()async throws  -> MoqBroadcastRequest  {
@@ -5325,6 +6365,19 @@ open func requestedBroadcast()async throws  -> MoqBroadcastRequest  {
             liftFunc: FfiConverterTypeMoqBroadcastRequest_lift,
             errorHandler: FfiConverterTypeMoqError_lift
         )
+}
+    
+    /**
+     * Re-price the route in place: replace its hops and costs. The prefix cannot
+     * change; call `dynamic` again instead.
+     */
+open func update(route: MoqRoute)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqorigindynamic_update(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeMoqRoute_lower(route),uniffiCallStatus
+    )
+}
 }
     
 
@@ -5387,24 +6440,29 @@ public protocol MoqOriginProducerProtocol: AnyObject, Sendable {
     /**
      * Create a broadcast at `path` on this origin, returning the producer that feeds it.
      *
-     * The broadcast starts announced: the origin advertises the path so subscribers can discover
-     * it, becoming visible shortly after this returns. Toggle discoverability with
-     * [`MoqBroadcastProducer::set_announce`]; an unannounced broadcast stays reachable by exact
-     * path for subscribes and fetches without being announced.
+     * The broadcast appears on this origin's local announcement streams immediately.
+     * Advertise it to peers with
+     * [`MoqBroadcastProducer::announce`] after populating tracks; an on-demand
+     * handler is [`Self::dynamic`]. Create, `dynamic()` if tracks are served on
+     * demand, populate, then announce.
      *
      * [`MoqBroadcastProducer::finish`] unpublishes immediately. Dropping the producer
-     * without finishing is treated as a failure: the path lingers briefly so a
-     * replacement publisher can take over without subscribers noticing.
+     * without finishing also unpublishes, but subscribers observe the end as a
+     * failure rather than a deliberate one.
      */
     func createBroadcast(path: String) throws  -> MoqBroadcastProducer
     
     /**
-     * Create a dynamic handler for serving unannounced broadcasts on request.
+     * Advertise `prefix` and serve the requests beneath it.
      *
-     * Hold the returned object while missing broadcast requests should be accepted.
-     * Dropping it makes future requests to unknown broadcasts fail.
+     * A route claims `prefix` and every path beneath it (the empty prefix
+     * claims every path). A service that only serves some of them advertises
+     * the covering prefix and rejects the rest as they are requested. Hold
+     * the returned handle while the route should stay advertised and missing
+     * broadcasts should be served. Create, attach this for tracks served on
+     * demand, populate, then announce.
      */
-    func dynamic()  -> MoqOriginDynamic
+    func dynamic(prefix: String, route: MoqRoute) throws  -> MoqOriginDynamic
     
 }
 open class MoqOriginProducer: MoqOriginProducerProtocol, @unchecked Sendable {
@@ -5449,12 +6507,12 @@ open class MoqOriginProducer: MoqOriginProducerProtocol, @unchecked Sendable {
     /**
      * Create a new origin for publishing and/or consuming broadcasts.
      */
-public convenience init(options: MoqOriginOptions) {
+public convenience init(config: MoqOriginConfig) {
     let handle =
         try! rustCall() {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_constructor_moqoriginproducer_new(
-        FfiConverterTypeMoqOriginOptions_lower(options),uniffiCallStatus
+        FfiConverterTypeMoqOriginConfig_lower(config),uniffiCallStatus
     )
 }
     self.init(unsafeFromHandle: handle)
@@ -5487,14 +6545,15 @@ open func consume() -> MoqOriginConsumer  {
     /**
      * Create a broadcast at `path` on this origin, returning the producer that feeds it.
      *
-     * The broadcast starts announced: the origin advertises the path so subscribers can discover
-     * it, becoming visible shortly after this returns. Toggle discoverability with
-     * [`MoqBroadcastProducer::set_announce`]; an unannounced broadcast stays reachable by exact
-     * path for subscribes and fetches without being announced.
+     * The broadcast appears on this origin's local announcement streams immediately.
+     * Advertise it to peers with
+     * [`MoqBroadcastProducer::announce`] after populating tracks; an on-demand
+     * handler is [`Self::dynamic`]. Create, `dynamic()` if tracks are served on
+     * demand, populate, then announce.
      *
      * [`MoqBroadcastProducer::finish`] unpublishes immediately. Dropping the producer
-     * without finishing is treated as a failure: the path lingers briefly so a
-     * replacement publisher can take over without subscribers noticing.
+     * without finishing also unpublishes, but subscribers observe the end as a
+     * failure rather than a deliberate one.
      */
 open func createBroadcast(path: String)throws  -> MoqBroadcastProducer  {
     return try  FfiConverterTypeMoqBroadcastProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
@@ -5507,16 +6566,22 @@ open func createBroadcast(path: String)throws  -> MoqBroadcastProducer  {
 }
     
     /**
-     * Create a dynamic handler for serving unannounced broadcasts on request.
+     * Advertise `prefix` and serve the requests beneath it.
      *
-     * Hold the returned object while missing broadcast requests should be accepted.
-     * Dropping it makes future requests to unknown broadcasts fail.
+     * A route claims `prefix` and every path beneath it (the empty prefix
+     * claims every path). A service that only serves some of them advertises
+     * the covering prefix and rejects the rest as they are requested. Hold
+     * the returned handle while the route should stay advertised and missing
+     * broadcasts should be served. Create, attach this for tracks served on
+     * demand, populate, then announce.
      */
-open func dynamic() -> MoqOriginDynamic  {
-    return try!  FfiConverterTypeMoqOriginDynamic_lift(try! rustCall() {
+open func dynamic(prefix: String, route: MoqRoute)throws  -> MoqOriginDynamic  {
+    return try  FfiConverterTypeMoqOriginDynamic_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqoriginproducer_dynamic(
-            self.uniffiCloneHandle(),uniffiCallStatus
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(prefix),
+        FfiConverterTypeMoqRoute_lower(route),uniffiCallStatus
     )
 })
 }
@@ -5573,6 +6638,10 @@ public func FfiConverterTypeMoqOriginProducer_lower(_ value: MoqOriginProducer) 
 
 /**
  * An incoming MoQ session that can be accepted or rejected.
+ *
+ * Origin overrides are captured at [`accept`](Self::accept). Setters fail with
+ * [`MoqError::Busy`] while accept/reject is in flight, [`MoqError::AlreadyResponded`]
+ * after a response, and [`MoqError::Cancelled`] after [`cancel`](Self::cancel).
  */
 public protocol MoqRequestProtocol: AnyObject, Sendable {
     
@@ -5585,6 +6654,9 @@ public protocol MoqRequestProtocol: AnyObject, Sendable {
     
     /**
      * Cancel any in-flight `accept()` or `reject()` call.
+     *
+     * Terminal: an unanswered request is dropped here rather than when the handle is, which
+     * rejects the session.
      */
     func cancel() 
     
@@ -5599,7 +6671,10 @@ public protocol MoqRequestProtocol: AnyObject, Sendable {
     func query()  -> String?
     
     /**
-     * Reject the session with the given HTTP status code.
+     * Reject the established MoQ session with an application error code.
+     *
+     * Codes 401 and 403 map to the protocol's unauthorized error; every other
+     * code is sent as an application error.
      *
      * Returns `AlreadyResponded` if `accept()` or `reject()` has already been called.
      */
@@ -5607,20 +6682,20 @@ public protocol MoqRequestProtocol: AnyObject, Sendable {
     
     /**
      * Override the consume origin for this session. Falls back to the server's
-     * configured consume origin if unset.
+     * configured consume origin if unset. Captured at [`accept`](Self::accept).
      */
-    func setConsume(origin: MoqOriginProducer?) 
+    func setConsume(origin: MoqOriginProducer?) throws 
     
     /**
      * Override the publish origin for this session. Falls back to the server's
-     * configured publish origin if unset.
+     * configured publish origin if unset. Captured at [`accept`](Self::accept).
      */
-    func setPublish(origin: MoqOriginProducer?) 
+    func setPublish(origin: MoqOriginProducer?) throws 
     
     /**
-     * The transport type, e.g. `"quic"`, `"iroh"`, or `"websocket"`.
+     * The network transport carrying this session.
      */
-    func transport()  -> String
+    func transport()  -> MoqTransport
     
     /**
      * The URL provided by the client, if any.
@@ -5630,6 +6705,10 @@ public protocol MoqRequestProtocol: AnyObject, Sendable {
 }
 /**
  * An incoming MoQ session that can be accepted or rejected.
+ *
+ * Origin overrides are captured at [`accept`](Self::accept). Setters fail with
+ * [`MoqError::Busy`] while accept/reject is in flight, [`MoqError::AlreadyResponded`]
+ * after a response, and [`MoqError::Cancelled`] after [`cancel`](Self::cancel).
  */
 open class MoqRequest: MoqRequestProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
@@ -5707,6 +6786,9 @@ open func accept()async throws  -> MoqSession  {
     
     /**
      * Cancel any in-flight `accept()` or `reject()` call.
+     *
+     * Terminal: an unanswered request is dropped here rather than when the handle is, which
+     * rejects the session.
      */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
@@ -5741,7 +6823,10 @@ open func query() -> String?  {
 }
     
     /**
-     * Reject the session with the given HTTP status code.
+     * Reject the established MoQ session with an application error code.
+     *
+     * Codes 401 and 403 map to the protocol's unauthorized error; every other
+     * code is sent as an application error.
      *
      * Returns `AlreadyResponded` if `accept()` or `reject()` has already been called.
      */
@@ -5763,9 +6848,9 @@ open func reject(code: UInt16)async throws   {
     
     /**
      * Override the consume origin for this session. Falls back to the server's
-     * configured consume origin if unset.
+     * configured consume origin if unset. Captured at [`accept`](Self::accept).
      */
-open func setConsume(origin: MoqOriginProducer?)  {try! rustCall() {
+open func setConsume(origin: MoqOriginProducer?)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqrequest_set_consume(
             self.uniffiCloneHandle(),
@@ -5776,9 +6861,9 @@ open func setConsume(origin: MoqOriginProducer?)  {try! rustCall() {
     
     /**
      * Override the publish origin for this session. Falls back to the server's
-     * configured publish origin if unset.
+     * configured publish origin if unset. Captured at [`accept`](Self::accept).
      */
-open func setPublish(origin: MoqOriginProducer?)  {try! rustCall() {
+open func setPublish(origin: MoqOriginProducer?)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqrequest_set_publish(
             self.uniffiCloneHandle(),
@@ -5788,10 +6873,10 @@ open func setPublish(origin: MoqOriginProducer?)  {try! rustCall() {
 }
     
     /**
-     * The transport type, e.g. `"quic"`, `"iroh"`, or `"websocket"`.
+     * The network transport carrying this session.
      */
-open func transport() -> String  {
-    return try!  FfiConverterString.lift(try! rustCall() {
+open func transport() -> MoqTransport  {
+    return try!  FfiConverterTypeMoqTransport_lift(try! rustCall() {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqrequest_transport(
             self.uniffiCloneHandle(),uniffiCallStatus
@@ -5862,27 +6947,36 @@ public func FfiConverterTypeMoqRequest_lower(_ value: MoqRequest) -> UInt64 {
 
 
 /**
- * A watch over a broadcast's route. Created by `MoqBroadcastConsumer::route_updates`.
+ * One track's standing claim on a [`MoqBandwidth`].
+ *
+ * [`grant`](Self::grant) is [`moq_net::bandwidth::Reservation::peek`]: `None`
+ * means no estimate or no demand, so hold the current rate, and `Some(0)` is a
+ * real zero grant.
  */
-public protocol MoqRouteWatchProtocol: AnyObject, Sendable {
+public protocol MoqReservationProtocol: AnyObject, Sendable {
     
     /**
-     * Cancel all current and future `next()` calls.
-     */
-    func cancel() 
-    
-    /**
-     * Wait for the next route: the current one on the first call, then each change.
+     * This reservation's slice right now, in bits per second.
      *
-     * Returns `None` once the broadcast ends (every producer gone).
+     * `None` means no estimate or no demand: hold the current rate. `Some(0)`
+     * is a real zero grant.
      */
-    func next() async throws  -> MoqRoute?
+    func grant()  -> UInt64?
+    
+    /**
+     * Change the ceiling, keeping the same claim.
+     */
+    func update(maxBps: UInt64) 
     
 }
 /**
- * A watch over a broadcast's route. Created by `MoqBroadcastConsumer::route_updates`.
+ * One track's standing claim on a [`MoqBandwidth`].
+ *
+ * [`grant`](Self::grant) is [`moq_net::bandwidth::Reservation::peek`]: `None`
+ * means no estimate or no demand, so hold the current rate, and `Some(0)` is a
+ * real zero grant.
  */
-open class MoqRouteWatch: MoqRouteWatchProtocol, @unchecked Sendable {
+open class MoqReservation: MoqReservationProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
 
     /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
@@ -5919,7 +7013,7 @@ open class MoqRouteWatch: MoqRouteWatchProtocol, @unchecked Sendable {
     @_documentation(visibility: private)
 #endif
     public func uniffiCloneHandle() -> UInt64 {
-        return try! rustCall { uniffi_moq_ffi_fn_clone_moqroutewatch(self.handle, $0) }
+        return try! rustCall { uniffi_moq_ffi_fn_clone_moqreservation(self.handle, $0) }
     }
     // No primary constructor declared for this class.
 
@@ -5929,42 +7023,37 @@ open class MoqRouteWatch: MoqRouteWatchProtocol, @unchecked Sendable {
             return
         }
 
-        try! rustCall { uniffi_moq_ffi_fn_free_moqroutewatch(handle, $0) }
+        try! rustCall { uniffi_moq_ffi_fn_free_moqreservation(handle, $0) }
     }
 
     
 
     
     /**
-     * Cancel all current and future `next()` calls.
+     * This reservation's slice right now, in bits per second.
+     *
+     * `None` means no estimate or no demand: hold the current rate. `Some(0)`
+     * is a real zero grant.
      */
-open func cancel()  {try! rustCall() {
+open func grant() -> UInt64?  {
+    return try!  FfiConverterOptionUInt64.lift(try! rustCall() {
         uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqroutewatch_cancel(
+    uniffi_moq_ffi_fn_method_moqreservation_grant(
             self.uniffiCloneHandle(),uniffiCallStatus
     )
-}
+})
 }
     
     /**
-     * Wait for the next route: the current one on the first call, then each change.
-     *
-     * Returns `None` once the broadcast ends (every producer gone).
+     * Change the ceiling, keeping the same claim.
      */
-open func next()async throws  -> MoqRoute?  {
-    return
-        try  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_moq_ffi_fn_method_moqroutewatch_next(
-                        self.uniffiCloneHandle()
-                )
-            },
-            pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
-            completeFunc: ffi_moq_ffi_rust_future_complete_rust_buffer,
-            freeFunc: ffi_moq_ffi_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterOptionTypeMoqRoute.lift,
-            errorHandler: FfiConverterTypeMoqError_lift
-        )
+open func update(maxBps: UInt64)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqreservation_update(
+            self.uniffiCloneHandle(),
+        FfiConverterUInt64.lower(maxBps),uniffiCallStatus
+    )
+}
 }
     
 
@@ -5975,24 +7064,24 @@ open func next()async throws  -> MoqRoute?  {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeMoqRouteWatch: FfiConverter {
+public struct FfiConverterTypeMoqReservation: FfiConverter {
     typealias FfiType = UInt64
-    typealias SwiftType = MoqRouteWatch
+    typealias SwiftType = MoqReservation
 
-    public static func lift(_ handle: UInt64) throws -> MoqRouteWatch {
-        return MoqRouteWatch(unsafeFromHandle: handle)
+    public static func lift(_ handle: UInt64) throws -> MoqReservation {
+        return MoqReservation(unsafeFromHandle: handle)
     }
 
-    public static func lower(_ value: MoqRouteWatch) -> UInt64 {
+    public static func lower(_ value: MoqReservation) -> UInt64 {
         return value.uniffiCloneHandle()
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqRouteWatch {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqReservation {
         let handle: UInt64 = try readInt(&buf)
         return try lift(handle)
     }
 
-    public static func write(_ value: MoqRouteWatch, into buf: inout [UInt8]) {
+    public static func write(_ value: MoqReservation, into buf: inout [UInt8]) {
         writeInt(&buf, lower(value))
     }
 }
@@ -6001,15 +7090,15 @@ public struct FfiConverterTypeMoqRouteWatch: FfiConverter {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeMoqRouteWatch_lift(_ handle: UInt64) throws -> MoqRouteWatch {
-    return try FfiConverterTypeMoqRouteWatch.lift(handle)
+public func FfiConverterTypeMoqReservation_lift(_ handle: UInt64) throws -> MoqReservation {
+    return try FfiConverterTypeMoqReservation.lift(handle)
 }
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeMoqRouteWatch_lower(_ value: MoqRouteWatch) -> UInt64 {
-    return FfiConverterTypeMoqRouteWatch.lower(value)
+public func FfiConverterTypeMoqReservation_lower(_ value: MoqReservation) -> UInt64 {
+    return FfiConverterTypeMoqReservation.lower(value)
 }
 
 
@@ -6019,18 +7108,28 @@ public func FfiConverterTypeMoqRouteWatch_lower(_ value: MoqRouteWatch) -> UInt6
 
 /**
  * A MoQ server that accepts incoming QUIC/WebTransport sessions.
+ *
+ * Bind and TLS are captured at [`listen`](Self::listen); those setters fail
+ * afterwards. Origins are captured at each [`accept`](Self::accept). Every setter
+ * fails with [`MoqError::Busy`] while listen/accept is in flight and
+ * [`MoqError::Cancelled`] after [`cancel`](Self::cancel).
  */
 public protocol MoqServerProtocol: AnyObject, Sendable {
     
     /**
      * Accept the next incoming session. Returns `None` when the server has closed.
      *
-     * `listen()` must be called first.
+     * `listen()` must be called first. Dropping the returned future aborts this
+     * call alone and leaves the server listening.
      */
     func accept() async throws  -> MoqRequest?
     
     /**
      * Cancel any in-flight `listen()` or `accept()` call.
+     *
+     * Terminal, and synchronous: it returns once the listening socket is closed,
+     * not when the handle is, so the address can be bound again immediately.
+     * `cert_fingerprints()` returns `Cancelled` afterwards.
      */
     func cancel() 
     
@@ -6053,40 +7152,54 @@ public protocol MoqServerProtocol: AnyObject, Sendable {
      * Set the address to bind, e.g. `127.0.0.1:4443`, `[::]:443`, or `localhost:0`.
      *
      * Validated syntactically up-front. DNS hostnames are accepted and resolved
-     * at `listen()` time.
+     * at `listen()` time. Captured at [`listen`](Self::listen); fails afterwards.
      */
     func setBind(addr: String) throws 
     
     /**
      * Set the origin to consume broadcasts from incoming sessions.
+     *
+     * Captured at each [`accept`](Self::accept).
      */
-    func setConsume(origin: MoqOriginProducer?) 
+    func setConsume(origin: MoqOriginProducer?) throws 
     
     /**
      * Set the origin to publish broadcasts to incoming sessions.
+     *
+     * Captured at each [`accept`](Self::accept).
      */
-    func setPublish(origin: MoqOriginProducer?) 
+    func setPublish(origin: MoqOriginProducer?) throws 
     
     /**
      * Load TLS certificate chains from PEM files on disk.
+     *
+     * Captured at [`listen`](Self::listen); fails afterwards.
      */
-    func setTlsCert(paths: [String]) 
+    func setTlsCert(paths: [String]) throws 
     
     /**
      * Generate self-signed TLS certificates for the given hostnames.
      *
      * Clients must either pin the certificate fingerprint or disable verification.
+     * Captured at [`listen`](Self::listen); fails afterwards.
      */
-    func setTlsGenerate(hostnames: [String]) 
+    func setTlsGenerate(hostnames: [String]) throws 
     
     /**
      * Load TLS private keys from PEM files on disk.
+     *
+     * Captured at [`listen`](Self::listen); fails afterwards.
      */
-    func setTlsKey(paths: [String]) 
+    func setTlsKey(paths: [String]) throws 
     
 }
 /**
  * A MoQ server that accepts incoming QUIC/WebTransport sessions.
+ *
+ * Bind and TLS are captured at [`listen`](Self::listen); those setters fail
+ * afterwards. Origins are captured at each [`accept`](Self::accept). Every setter
+ * fails with [`MoqError::Busy`] while listen/accept is in flight and
+ * [`MoqError::Cancelled`] after [`cancel`](Self::cancel).
  */
 open class MoqServer: MoqServerProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
@@ -6155,7 +7268,8 @@ public convenience init() {
     /**
      * Accept the next incoming session. Returns `None` when the server has closed.
      *
-     * `listen()` must be called first.
+     * `listen()` must be called first. Dropping the returned future aborts this
+     * call alone and leaves the server listening.
      */
 open func accept()async throws  -> MoqRequest?  {
     return
@@ -6175,6 +7289,10 @@ open func accept()async throws  -> MoqRequest?  {
     
     /**
      * Cancel any in-flight `listen()` or `accept()` call.
+     *
+     * Terminal, and synchronous: it returns once the listening socket is closed,
+     * not when the handle is, so the address can be bound again immediately.
+     * `cert_fingerprints()` returns `Cancelled` afterwards.
      */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
@@ -6224,7 +7342,7 @@ open func listen()async throws  -> String  {
      * Set the address to bind, e.g. `127.0.0.1:4443`, `[::]:443`, or `localhost:0`.
      *
      * Validated syntactically up-front. DNS hostnames are accepted and resolved
-     * at `listen()` time.
+     * at `listen()` time. Captured at [`listen`](Self::listen); fails afterwards.
      */
 open func setBind(addr: String)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
@@ -6237,8 +7355,10 @@ open func setBind(addr: String)throws   {try rustCallWithError(FfiConverterTypeM
     
     /**
      * Set the origin to consume broadcasts from incoming sessions.
+     *
+     * Captured at each [`accept`](Self::accept).
      */
-open func setConsume(origin: MoqOriginProducer?)  {try! rustCall() {
+open func setConsume(origin: MoqOriginProducer?)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqserver_set_consume(
             self.uniffiCloneHandle(),
@@ -6249,8 +7369,10 @@ open func setConsume(origin: MoqOriginProducer?)  {try! rustCall() {
     
     /**
      * Set the origin to publish broadcasts to incoming sessions.
+     *
+     * Captured at each [`accept`](Self::accept).
      */
-open func setPublish(origin: MoqOriginProducer?)  {try! rustCall() {
+open func setPublish(origin: MoqOriginProducer?)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqserver_set_publish(
             self.uniffiCloneHandle(),
@@ -6261,8 +7383,10 @@ open func setPublish(origin: MoqOriginProducer?)  {try! rustCall() {
     
     /**
      * Load TLS certificate chains from PEM files on disk.
+     *
+     * Captured at [`listen`](Self::listen); fails afterwards.
      */
-open func setTlsCert(paths: [String])  {try! rustCall() {
+open func setTlsCert(paths: [String])throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqserver_set_tls_cert(
             self.uniffiCloneHandle(),
@@ -6275,8 +7399,9 @@ open func setTlsCert(paths: [String])  {try! rustCall() {
      * Generate self-signed TLS certificates for the given hostnames.
      *
      * Clients must either pin the certificate fingerprint or disable verification.
+     * Captured at [`listen`](Self::listen); fails afterwards.
      */
-open func setTlsGenerate(hostnames: [String])  {try! rustCall() {
+open func setTlsGenerate(hostnames: [String])throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqserver_set_tls_generate(
             self.uniffiCloneHandle(),
@@ -6287,8 +7412,10 @@ open func setTlsGenerate(hostnames: [String])  {try! rustCall() {
     
     /**
      * Load TLS private keys from PEM files on disk.
+     *
+     * Captured at [`listen`](Self::listen); fails afterwards.
      */
-open func setTlsKey(paths: [String])  {try! rustCall() {
+open func setTlsKey(paths: [String])throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqserver_set_tls_key(
             self.uniffiCloneHandle(),
@@ -6350,12 +7477,31 @@ public func FfiConverterTypeMoqServer_lower(_ value: MoqServer) -> UInt64 {
 public protocol MoqSessionProtocol: AnyObject, Sendable {
     
     /**
-     * Close the session with the given error code.
+     * The session's bandwidth allocator, used to divide the connection's send
+     * estimate among tracks sharing it.
+     *
+     * Every call returns a handle to the same registry, so reservations made
+     * through one are visible to the others. A client handle survives
+     * reconnects: the grant is `None` while disconnected and resumes on the
+     * next connection. An accepted session with no congestion estimate mints
+     * an unlimited allocator, which reports `None` for every reservation.
+     */
+    func bandwidth()  -> MoqBandwidth
+    
+    /**
+     * Close the session with the given error code, stopping any reconnect loop.
      */
     func cancel(code: UInt32) 
     
     /**
-     * Wait until the session is closed.
+     * Wait until the session is over.
+     *
+     * A client session resolves when its connection stops for good: `Err` with the
+     * terminal error when it gave up (retries exhausted, or the session's close reason
+     * with reconnecting disabled), `Ok` after a local [`shutdown`](Self::shutdown) /
+     * [`cancel`](Self::cancel). Transient drops the reconnect loop rides out do not
+     * resolve this; watch [`status`](Self::status) for those. A server-accepted
+     * session resolves with the session's close reason.
      */
     func closed() async throws 
     
@@ -6365,7 +7511,17 @@ public protocol MoqSessionProtocol: AnyObject, Sendable {
      * origin the caller wired via `set_consume`, or auto-created if
      * neither was set.
      */
-    func consumer()  -> MoqOriginConsumer
+    func consume()  -> MoqOriginConsumer
+    
+    /**
+     * The connection epoch: 1 for the connect this session was built from, one more
+     * on each reconnect. A server-accepted session is a single transport, so it stays 1.
+     *
+     * The count pairs with [`status`](Self::status): a `Connected` transition whose
+     * epoch grew is a reconnect, so a worker can log each one by number. Migrations
+     * count too, since the replacement is a new session.
+     */
+    func epoch()  -> UInt64
     
     /**
      * The publish-side origin: where local broadcasts get advertised
@@ -6373,7 +7529,7 @@ public protocol MoqSessionProtocol: AnyObject, Sendable {
      * `set_publish` / `set_consume` before connect/accept, or one
      * auto-created if neither was set.
      */
-    func publisher()  -> MoqOriginProducer
+    func publish()  -> MoqOriginProducer
     
     /**
      * Graceful shutdown. Equivalent to `cancel(0)`. Documents the
@@ -6390,9 +7546,26 @@ public protocol MoqSessionProtocol: AnyObject, Sendable {
      * byte/packet counters). Cheap to call; intended for periodic polling.
      *
      * Individual fields are `None` when the transport backend doesn't report
-     * them; see [`MoqConnectionStats`].
+     * them, or (on a client session) while the connection is between sessions;
+     * see [`MoqConnectionStats`].
      */
     func stats()  -> MoqConnectionStats
+    
+    /**
+     * Wait for the connection status to differ from the one this handle last reported.
+     *
+     * A client session reports `Connected` first (the connect it was built from), then
+     * follows the reconnect loop: `Disconnected` while redialing, `Connected` again on
+     * success, `Migrating` during a GOAWAY handover. It returns an error once the
+     * connection stops for good (same terminal result as [`closed`](Self::closed)).
+     * A server-accepted session is a single transport, so its only transition is
+     * terminal: this waits for the close and returns its reason.
+     *
+     * This is the current status, not a queue of every edge: a drop that reconnects
+     * before you ask again is coalesced away, so the outages it hides are the ones
+     * that already healed. Don't count outages with it.
+     */
+    func status() async throws  -> MoqConnectionStatus
     
 }
 open class MoqSession: MoqSessionProtocol, @unchecked Sendable {
@@ -6449,7 +7622,26 @@ open class MoqSession: MoqSessionProtocol, @unchecked Sendable {
 
     
     /**
-     * Close the session with the given error code.
+     * The session's bandwidth allocator, used to divide the connection's send
+     * estimate among tracks sharing it.
+     *
+     * Every call returns a handle to the same registry, so reservations made
+     * through one are visible to the others. A client handle survives
+     * reconnects: the grant is `None` while disconnected and resumes on the
+     * next connection. An accepted session with no congestion estimate mints
+     * an unlimited allocator, which reports `None` for every reservation.
+     */
+open func bandwidth() -> MoqBandwidth  {
+    return try!  FfiConverterTypeMoqBandwidth_lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqsession_bandwidth(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Close the session with the given error code, stopping any reconnect loop.
      */
 open func cancel(code: UInt32)  {try! rustCall() {
         uniffiCallStatus in
@@ -6461,7 +7653,14 @@ open func cancel(code: UInt32)  {try! rustCall() {
 }
     
     /**
-     * Wait until the session is closed.
+     * Wait until the session is over.
+     *
+     * A client session resolves when its connection stops for good: `Err` with the
+     * terminal error when it gave up (retries exhausted, or the session's close reason
+     * with reconnecting disabled), `Ok` after a local [`shutdown`](Self::shutdown) /
+     * [`cancel`](Self::cancel). Transient drops the reconnect loop rides out do not
+     * resolve this; watch [`status`](Self::status) for those. A server-accepted
+     * session resolves with the session's close reason.
      */
 open func closed()async throws   {
     return
@@ -6485,10 +7684,27 @@ open func closed()async throws   {
      * origin the caller wired via `set_consume`, or auto-created if
      * neither was set.
      */
-open func consumer() -> MoqOriginConsumer  {
+open func consume() -> MoqOriginConsumer  {
     return try!  FfiConverterTypeMoqOriginConsumer_lift(try! rustCall() {
         uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqsession_consumer(
+    uniffi_moq_ffi_fn_method_moqsession_consume(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The connection epoch: 1 for the connect this session was built from, one more
+     * on each reconnect. A server-accepted session is a single transport, so it stays 1.
+     *
+     * The count pairs with [`status`](Self::status): a `Connected` transition whose
+     * epoch grew is a reconnect, so a worker can log each one by number. Migrations
+     * count too, since the replacement is a new session.
+     */
+open func epoch() -> UInt64  {
+    return try!  FfiConverterUInt64.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqsession_epoch(
             self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
@@ -6500,10 +7716,10 @@ open func consumer() -> MoqOriginConsumer  {
      * `set_publish` / `set_consume` before connect/accept, or one
      * auto-created if neither was set.
      */
-open func publisher() -> MoqOriginProducer  {
+open func publish() -> MoqOriginProducer  {
     return try!  FfiConverterTypeMoqOriginProducer_lift(try! rustCall() {
         uniffiCallStatus in
-    uniffi_moq_ffi_fn_method_moqsession_publisher(
+    uniffi_moq_ffi_fn_method_moqsession_publish(
             self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
@@ -6530,7 +7746,8 @@ open func shutdown()  {try! rustCall() {
      * byte/packet counters). Cheap to call; intended for periodic polling.
      *
      * Individual fields are `None` when the transport backend doesn't report
-     * them; see [`MoqConnectionStats`].
+     * them, or (on a client session) while the connection is between sessions;
+     * see [`MoqConnectionStats`].
      */
 open func stats() -> MoqConnectionStats  {
     return try!  FfiConverterTypeMoqConnectionStats_lift(try! rustCall() {
@@ -6539,6 +7756,36 @@ open func stats() -> MoqConnectionStats  {
             self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
+}
+    
+    /**
+     * Wait for the connection status to differ from the one this handle last reported.
+     *
+     * A client session reports `Connected` first (the connect it was built from), then
+     * follows the reconnect loop: `Disconnected` while redialing, `Connected` again on
+     * success, `Migrating` during a GOAWAY handover. It returns an error once the
+     * connection stops for good (same terminal result as [`closed`](Self::closed)).
+     * A server-accepted session is a single transport, so its only transition is
+     * terminal: this waits for the close and returns its reason.
+     *
+     * This is the current status, not a queue of every edge: a drop that reconnects
+     * before you ask again is coalesced away, so the outages it hides are the ones
+     * that already healed. Don't count outages with it.
+     */
+open func status()async throws  -> MoqConnectionStatus  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_moq_ffi_fn_method_moqsession_status(
+                        self.uniffiCloneHandle()
+                )
+            },
+            pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
+            completeFunc: ffi_moq_ffi_rust_future_complete_rust_buffer,
+            freeFunc: ffi_moq_ffi_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeMoqConnectionStatus_lift,
+            errorHandler: FfiConverterTypeMoqError_lift
+        )
 }
     
 
@@ -6593,6 +7840,11 @@ public func FfiConverterTypeMoqSession_lower(_ value: MoqSession) -> UInt64 {
 
 public protocol MoqTrackConsumerProtocol: AnyObject, Sendable {
     
+    /**
+     * Cancel all current and future reads.
+     *
+     * Terminal: the subscription is released here, not when the handle is.
+     */
     func cancel() 
     
     /**
@@ -6601,8 +7853,15 @@ public protocol MoqTrackConsumerProtocol: AnyObject, Sendable {
     func info() throws  -> MoqTrackInfo
     
     /**
-     * Return the next group in sequence order, skipping forward if the reader
-     * has fallen behind. Returns `None` when the track ends.
+     * Return the next group with a higher sequence number than any previously
+     * returned, skipping late arrivals. Returns `None` when the track ends.
+     *
+     * Shares the sequence cursor with [`Self::read_frame`]: a group one method
+     * has already taken is not returned by the other. A `read_frame` cancelled
+     * after acquiring a group leaves that group here.
+     *
+     * The first call commits this track to sequence order: arrival-order reads
+     * ([`Self::recv_group`]) fail with [`MoqError::AlreadyCommitted`] afterwards.
      */
     func nextGroup() async throws  -> MoqGroupConsumer?
     
@@ -6610,7 +7869,12 @@ public protocol MoqTrackConsumerProtocol: AnyObject, Sendable {
      * Read the first frame of the next group, including its timestamp.
      *
      * Convenience for tracks using one-frame-per-group (like moq-boy's
-     * status/command tracks). Returns `None` when the track ends.
+     * status/command tracks). Completed empty groups are skipped. Returns `None`
+     * only when the track ends. Cancelling one call keeps the current group so a
+     * later `read_frame` or [`Self::next_group`] still sees it.
+     *
+     * Shares the sequence cursor with [`Self::next_group`], committing the track
+     * the same way.
      */
     func readFrame() async throws  -> MoqFrame?
     
@@ -6619,6 +7883,9 @@ public protocol MoqTrackConsumerProtocol: AnyObject, Sendable {
      *
      * Returns `None` when the track ends. Datagram delivery is unavailable over
      * IETF moq-transport, pre-lite-05 moq-lite, and stream-only transports.
+     * Datagrams are a separate cursor from groups, so this works alongside either
+     * group order, never commits the track to one, and progresses while a group
+     * read is pending.
      */
     func recvDatagram() async throws  -> MoqDatagram?
     
@@ -6627,6 +7894,10 @@ public protocol MoqTrackConsumerProtocol: AnyObject, Sendable {
      *
      * Groups are returned as they arrive on the wire, which may be out of sequence
      * order (e.g. if a later group lands before an earlier one on a separate stream).
+     *
+     * The first call commits this track to arrival order: sequence-order reads
+     * ([`Self::next_group`], [`Self::read_frame`]) fail with
+     * [`MoqError::AlreadyCommitted`] afterwards.
      */
     func recvGroup() async throws  -> MoqGroupConsumer?
     
@@ -6692,6 +7963,11 @@ open class MoqTrackConsumer: MoqTrackConsumerProtocol, @unchecked Sendable {
     
 
     
+    /**
+     * Cancel all current and future reads.
+     *
+     * Terminal: the subscription is released here, not when the handle is.
+     */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqtrackconsumer_cancel(
@@ -6713,8 +7989,15 @@ open func info()throws  -> MoqTrackInfo  {
 }
     
     /**
-     * Return the next group in sequence order, skipping forward if the reader
-     * has fallen behind. Returns `None` when the track ends.
+     * Return the next group with a higher sequence number than any previously
+     * returned, skipping late arrivals. Returns `None` when the track ends.
+     *
+     * Shares the sequence cursor with [`Self::read_frame`]: a group one method
+     * has already taken is not returned by the other. A `read_frame` cancelled
+     * after acquiring a group leaves that group here.
+     *
+     * The first call commits this track to sequence order: arrival-order reads
+     * ([`Self::recv_group`]) fail with [`MoqError::AlreadyCommitted`] afterwards.
      */
 open func nextGroup()async throws  -> MoqGroupConsumer?  {
     return
@@ -6736,7 +8019,12 @@ open func nextGroup()async throws  -> MoqGroupConsumer?  {
      * Read the first frame of the next group, including its timestamp.
      *
      * Convenience for tracks using one-frame-per-group (like moq-boy's
-     * status/command tracks). Returns `None` when the track ends.
+     * status/command tracks). Completed empty groups are skipped. Returns `None`
+     * only when the track ends. Cancelling one call keeps the current group so a
+     * later `read_frame` or [`Self::next_group`] still sees it.
+     *
+     * Shares the sequence cursor with [`Self::next_group`], committing the track
+     * the same way.
      */
 open func readFrame()async throws  -> MoqFrame?  {
     return
@@ -6759,6 +8047,9 @@ open func readFrame()async throws  -> MoqFrame?  {
      *
      * Returns `None` when the track ends. Datagram delivery is unavailable over
      * IETF moq-transport, pre-lite-05 moq-lite, and stream-only transports.
+     * Datagrams are a separate cursor from groups, so this works alongside either
+     * group order, never commits the track to one, and progresses while a group
+     * read is pending.
      */
 open func recvDatagram()async throws  -> MoqDatagram?  {
     return
@@ -6781,6 +8072,10 @@ open func recvDatagram()async throws  -> MoqDatagram?  {
      *
      * Groups are returned as they arrive on the wire, which may be out of sequence
      * order (e.g. if a later group lands before an earlier one on a separate stream).
+     *
+     * The first call commits this track to arrival order: sequence-order reads
+     * ([`Self::next_group`], [`Self::read_frame`]) fail with
+     * [`MoqError::AlreadyCommitted`] afterwards.
      */
 open func recvGroup()async throws  -> MoqGroupConsumer?  {
     return
@@ -6870,6 +8165,9 @@ public protocol MoqTrackDynamicProtocol: AnyObject, Sendable {
     
     /**
      * Cancel all current and future `requested_group()` calls.
+     *
+     * Terminal: the dynamic track is released here, not when the handle is, so any pending
+     * fetch is rejected.
      */
     func cancel() 
     
@@ -6940,6 +8238,9 @@ open class MoqTrackDynamic: MoqTrackDynamicProtocol, @unchecked Sendable {
     
     /**
      * Cancel all current and future `requested_group()` calls.
+     *
+     * Terminal: the dynamic track is released here, not when the handle is, so any pending
+     * fetch is rejected.
      */
 open func cancel()  {try! rustCall() {
         uniffiCallStatus in
@@ -7045,7 +8346,7 @@ public protocol MoqTrackProducerProtocol: AnyObject, Sendable {
      * Create a consumer that reads from this producer's track.
      *
      * Useful for local pub/sub without going through an origin/broadcast. `subscription`
-     * tunes delivery priority, group ordering priority, and group range; omit for defaults.
+     * tunes delivery priority, group range, and staleness; omit for defaults.
      */
     func consume(subscription: MoqSubscription?) throws  -> MoqTrackConsumer
     
@@ -7066,10 +8367,10 @@ public protocol MoqTrackProducerProtocol: AnyObject, Sendable {
     func dynamic() throws  -> MoqTrackDynamic
     
     /**
-     * Release this producer, ending the track at the live edge.
+     * End the track at the live edge.
      *
      * [`finish_at`](Self::finish_at) declares the boundary ahead of time, so this keeps
-     * that boundary and only releases the producer.
+     * that boundary. The handle remains so a later [`abort`](Self::abort) can still run.
      */
     func finish() throws 
     
@@ -7203,7 +8504,7 @@ open func appendGroup()throws  -> MoqGroupProducer  {
      * Create a consumer that reads from this producer's track.
      *
      * Useful for local pub/sub without going through an origin/broadcast. `subscription`
-     * tunes delivery priority, group ordering priority, and group range; omit for defaults.
+     * tunes delivery priority, group range, and staleness; omit for defaults.
      */
 open func consume(subscription: MoqSubscription?)throws  -> MoqTrackConsumer  {
     return try  FfiConverterTypeMoqTrackConsumer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
@@ -7247,10 +8548,10 @@ open func dynamic()throws  -> MoqTrackDynamic  {
 }
     
     /**
-     * Release this producer, ending the track at the live edge.
+     * End the track at the live edge.
      *
      * [`finish_at`](Self::finish_at) declares the boundary ahead of time, so this keeps
-     * that boundary and only releases the producer.
+     * that boundary. The handle remains so a later [`abort`](Self::abort) can still run.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
@@ -7395,7 +8696,7 @@ public func FfiConverterTypeMoqTrackProducer_lower(_ value: MoqTrackProducer) ->
  * A track requested by a subscriber that hasn't been accepted yet.
  *
  * Mirrors [`moq_net::track::Request`]: [`accept`](Self::accept) it to start producing raw
- * frames, hand it to [`MoqBroadcastProducer::publish_media_on_track`] to publish media,
+ * frames, hand it to [`MoqBroadcastProducer::publish_audio_on_track`] to publish media,
  * or [`abort`](Self::abort) it to reject the waiting subscriber.
  */
 public protocol MoqTrackRequestProtocol: AnyObject, Sendable {
@@ -7408,7 +8709,7 @@ public protocol MoqTrackRequestProtocol: AnyObject, Sendable {
     /**
      * Accept the request as a raw track, fixing its [`MoqTrackInfo`] (timescale, etc.).
      *
-     * For media use [`MoqBroadcastProducer::publish_media_on_track`] instead, which lets
+     * For media use [`MoqBroadcastProducer::publish_audio_on_track`] instead, which lets
      * the importer pick the timescale.
      */
     func accept(info: MoqTrackInfo?) throws  -> MoqTrackProducer
@@ -7432,7 +8733,7 @@ public protocol MoqTrackRequestProtocol: AnyObject, Sendable {
  * A track requested by a subscriber that hasn't been accepted yet.
  *
  * Mirrors [`moq_net::track::Request`]: [`accept`](Self::accept) it to start producing raw
- * frames, hand it to [`MoqBroadcastProducer::publish_media_on_track`] to publish media,
+ * frames, hand it to [`MoqBroadcastProducer::publish_audio_on_track`] to publish media,
  * or [`abort`](Self::abort) it to reject the waiting subscriber.
  */
 open class MoqTrackRequest: MoqTrackRequestProtocol, @unchecked Sendable {
@@ -7503,7 +8804,7 @@ open func abort(errorCode: UInt16)throws   {try rustCallWithError(FfiConverterTy
     /**
      * Accept the request as a raw track, fixing its [`MoqTrackInfo`] (timescale, etc.).
      *
-     * For media use [`MoqBroadcastProducer::publish_media_on_track`] instead, which lets
+     * For media use [`MoqBroadcastProducer::publish_audio_on_track`] instead, which lets
      * the importer pick the timescale.
      */
 open func accept(info: MoqTrackInfo?)throws  -> MoqTrackProducer  {
@@ -7595,6 +8896,162 @@ public func FfiConverterTypeMoqTrackRequest_lower(_ value: MoqTrackRequest) -> U
 
 
 /**
+ * Consumer for a video track decoded inside the bindings.
+ */
+public protocol MoqVideoConsumerProtocol: AnyObject, Sendable {
+    
+    /**
+     * Make current and future reads return `Cancelled`.
+     *
+     * Terminal: the decoder session is released here, not when the handle is.
+     */
+    func cancel() 
+    
+    /**
+     * The next decoded frame, or `None` once the track ends.
+     */
+    func next() async throws  -> MoqVideoDecodedFrame?
+    
+}
+/**
+ * Consumer for a video track decoded inside the bindings.
+ */
+open class MoqVideoConsumer: MoqVideoConsumerProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_moq_ffi_fn_clone_moqvideoconsumer(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_moq_ffi_fn_free_moqvideoconsumer(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Make current and future reads return `Cancelled`.
+     *
+     * Terminal: the decoder session is released here, not when the handle is.
+     */
+open func cancel()  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqvideoconsumer_cancel(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * The next decoded frame, or `None` once the track ends.
+     */
+open func next()async throws  -> MoqVideoDecodedFrame?  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_moq_ffi_fn_method_moqvideoconsumer_next(
+                        self.uniffiCloneHandle()
+                )
+            },
+            pollFunc: ffi_moq_ffi_rust_future_poll_rust_buffer,
+            completeFunc: ffi_moq_ffi_rust_future_complete_rust_buffer,
+            freeFunc: ffi_moq_ffi_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterOptionTypeMoqVideoDecodedFrame.lift,
+            errorHandler: FfiConverterTypeMoqError_lift
+        )
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqVideoConsumer: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = MoqVideoConsumer
+
+    public static func lift(_ handle: UInt64) throws -> MoqVideoConsumer {
+        return MoqVideoConsumer(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: MoqVideoConsumer) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqVideoConsumer {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: MoqVideoConsumer, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoConsumer_lift(_ handle: UInt64) throws -> MoqVideoConsumer {
+    return try FfiConverterTypeMoqVideoConsumer.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoConsumer_lower(_ value: MoqVideoConsumer) -> UInt64 {
+    return FfiConverterTypeMoqVideoConsumer.lower(value)
+}
+
+
+
+
+
+
+/**
  * Producer for a raw-video track.
  *
  * Built via [`MoqBroadcastProducer::publish_video`]. Each
@@ -7616,6 +9073,10 @@ public protocol MoqVideoProducerProtocol: AnyObject, Sendable {
      * The next frame is encoded as a keyframe, which closes the open group and
      * starts a new one at it. Calling this repeatedly before that frame arrives
      * cuts once, not several times.
+     *
+     * Fails when the selected encoder cannot force a keyframe (a V4L2 driver
+     * without the control): nothing is queued, and groups keep falling at the
+     * configured interval.
      */
     func cut() throws 
     
@@ -7630,6 +9091,13 @@ public protocol MoqVideoProducerProtocol: AnyObject, Sendable {
     func name() throws  -> String
     
     /**
+     * This encoder's bandwidth reservation, if it was published against a
+     * [`MoqBandwidth`]. Dropping the handle does not release the claim; the
+     * producer holds it until [`finish`](Self::finish).
+     */
+    func reservation()  -> MoqReservation?
+    
+    /**
      * Retune the live encoder to `bitrate` bits per second, taking effect from
      * roughly the next frame. No keyframe is forced, so this is cheap enough to
      * drive from a congestion controller.
@@ -7638,6 +9106,10 @@ public protocol MoqVideoProducerProtocol: AnyObject, Sendable {
      * raise above the rate it opened at), so set
      * [`bitrate`](MoqVideoEncoderOutput::bitrate) to the highest you will ask for
      * and adapt downwards from there.
+     *
+     * When this producer was published against a [`MoqBandwidth`], the reservation
+     * and follower ceiling move with it, so a later grant cannot retune above this
+     * value.
      *
      * Errors if this backend cannot retune while running. That is not fatal: the
      * encoder keeps running at its current rate, so stop adapting rather than
@@ -7737,6 +9209,10 @@ open class MoqVideoProducer: MoqVideoProducerProtocol, @unchecked Sendable {
      * The next frame is encoded as a keyframe, which closes the open group and
      * starts a new one at it. Calling this repeatedly before that frame arrives
      * cuts once, not several times.
+     *
+     * Fails when the selected encoder cannot force a keyframe (a V4L2 driver
+     * without the control): nothing is queued, and groups keep falling at the
+     * configured interval.
      */
 open func cut()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
@@ -7770,6 +9246,20 @@ open func name()throws  -> String  {
 }
     
     /**
+     * This encoder's bandwidth reservation, if it was published against a
+     * [`MoqBandwidth`]. Dropping the handle does not release the claim; the
+     * producer holds it until [`finish`](Self::finish).
+     */
+open func reservation() -> MoqReservation?  {
+    return try!  FfiConverterOptionTypeMoqReservation.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqvideoproducer_reservation(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
      * Retune the live encoder to `bitrate` bits per second, taking effect from
      * roughly the next frame. No keyframe is forced, so this is cheap enough to
      * drive from a congestion controller.
@@ -7778,6 +9268,10 @@ open func name()throws  -> String  {
      * raise above the rate it opened at), so set
      * [`bitrate`](MoqVideoEncoderOutput::bitrate) to the highest you will ask for
      * and adapt downwards from there.
+     *
+     * When this producer was published against a [`MoqBandwidth`], the reservation
+     * and follower ceiling move with it, so a later grant cannot retune above this
+     * value.
      *
      * Errors if this backend cannot retune while running. That is not fatal: the
      * encoder keeps running at its current rate, so stop adapting rather than
@@ -7893,7 +9387,85 @@ public func FfiConverterTypeMoqVideoProducer_lower(_ value: MoqVideoProducer) ->
 
 
 
+/**
+ * Scope for an announcement stream.
+ */
+public struct MoqAnnounceConfig: Equatable, Hashable {
+    /**
+     * Literal path prefix beneath the origin.
+     */
+    public var prefix: String
+    /**
+     * Pattern relative to `prefix`, or `None` for every path beneath it.
+     */
+    public var filter: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Literal path prefix beneath the origin.
+         */prefix: String = "", 
+        /**
+         * Pattern relative to `prefix`, or `None` for every path beneath it.
+         */filter: String? = nil) {
+        self.prefix = prefix
+        self.filter = filter
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension MoqAnnounceConfig: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqAnnounceConfig: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqAnnounceConfig {
+        return
+            try MoqAnnounceConfig(
+                prefix: FfiConverterString.read(from: &buf), 
+                filter: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MoqAnnounceConfig, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.prefix, into: &buf)
+        FfiConverterOptionString.write(value.filter, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqAnnounceConfig_lift(_ buf: RustBuffer) throws -> MoqAnnounceConfig {
+    return try FfiConverterTypeMoqAnnounceConfig.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqAnnounceConfig_lower(_ value: MoqAnnounceConfig) -> RustBuffer {
+    return FfiConverterTypeMoqAnnounceConfig.lower(value)
+}
+
+
 public struct MoqAudio: Equatable, Hashable {
+    /**
+     * Human-readable rendition name for track pickers.
+     */
+    public var label: String?
+    /**
+     * The broadcast serving this rendition's track, relative to the catalog's own broadcast
+     * (e.g. `./source`). Absent or empty means the catalog's broadcast.
+     */
+    public var broadcast: String?
     public var codec: String
     public var description: Data?
     public var sampleRate: UInt32
@@ -7903,7 +9475,16 @@ public struct MoqAudio: Equatable, Hashable {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(codec: String, description: Data?, sampleRate: UInt32, channelCount: UInt32, bitrate: UInt64?, container: MoqContainer) {
+    public init(
+        /**
+         * Human-readable rendition name for track pickers.
+         */label: String? = nil, 
+        /**
+         * The broadcast serving this rendition's track, relative to the catalog's own broadcast
+         * (e.g. `./source`). Absent or empty means the catalog's broadcast.
+         */broadcast: String? = nil, codec: String, description: Data?, sampleRate: UInt32, channelCount: UInt32, bitrate: UInt64?, container: MoqContainer) {
+        self.label = label
+        self.broadcast = broadcast
         self.codec = codec
         self.description = description
         self.sampleRate = sampleRate
@@ -7928,6 +9509,8 @@ public struct FfiConverterTypeMoqAudio: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqAudio {
         return
             try MoqAudio(
+                label: FfiConverterOptionString.read(from: &buf), 
+                broadcast: FfiConverterOptionString.read(from: &buf), 
                 codec: FfiConverterString.read(from: &buf), 
                 description: FfiConverterOptionData.read(from: &buf), 
                 sampleRate: FfiConverterUInt32.read(from: &buf), 
@@ -7938,6 +9521,8 @@ public struct FfiConverterTypeMoqAudio: FfiConverterRustBuffer {
     }
 
     public static func write(_ value: MoqAudio, into buf: inout [UInt8]) {
+        FfiConverterOptionString.write(value.label, into: &buf)
+        FfiConverterOptionString.write(value.broadcast, into: &buf)
         FfiConverterString.write(value.codec, into: &buf)
         FfiConverterOptionData.write(value.description, into: &buf)
         FfiConverterUInt32.write(value.sampleRate, into: &buf)
@@ -7967,7 +9552,7 @@ public func FfiConverterTypeMoqAudio_lower(_ value: MoqAudio) -> RustBuffer {
  * PCM layout the caller wants out of [`MoqAudioConsumer::next`].
  */
 public struct MoqAudioDecoderOutput: Equatable, Hashable {
-    public var format: MoqAudioFormat
+    public var format: MoqAudioSampleFormat
     /**
      * `None` delivers samples at the codec's native rate.
      */
@@ -7978,18 +9563,20 @@ public struct MoqAudioDecoderOutput: Equatable, Hashable {
     public var channels: UInt32?
     /**
      * Upper bound on buffering before skipping a stalled group, in
-     * milliseconds. Same congestion-control knob as
-     * [`MoqSubscription::latency_max_ms`](crate::consumer::MoqSubscription::latency_max_ms):
+     * microseconds. Same congestion-control knob as
+     * [`MoqSubscription::max_age_us`](crate::consumer::MoqSubscription::max_age_us):
      * when a group stalls and a newer group is more than this far ahead,
      * the consumer skips. `None` keeps the moq-mux default of zero (skip
      * aggressively). Named `_max` to leave room for a future
-     * `latency_min_ms` (jitter buffer).
+     * `min_buffer_us` (jitter-buffer floor), which is a distinct knob: this
+     * one bounds how stale a group may be, that one how much to hold before
+     * presenting.
      */
-    public var latencyMaxMs: UInt64?
+    public var maxAgeUs: UInt64?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(format: MoqAudioFormat, 
+    public init(format: MoqAudioSampleFormat, 
         /**
          * `None` delivers samples at the codec's native rate.
          */sampleRate: UInt32? = nil, 
@@ -7998,17 +9585,19 @@ public struct MoqAudioDecoderOutput: Equatable, Hashable {
          */channels: UInt32? = nil, 
         /**
          * Upper bound on buffering before skipping a stalled group, in
-         * milliseconds. Same congestion-control knob as
-         * [`MoqSubscription::latency_max_ms`](crate::consumer::MoqSubscription::latency_max_ms):
+         * microseconds. Same congestion-control knob as
+         * [`MoqSubscription::max_age_us`](crate::consumer::MoqSubscription::max_age_us):
          * when a group stalls and a newer group is more than this far ahead,
          * the consumer skips. `None` keeps the moq-mux default of zero (skip
          * aggressively). Named `_max` to leave room for a future
-         * `latency_min_ms` (jitter buffer).
-         */latencyMaxMs: UInt64? = nil) {
+         * `min_buffer_us` (jitter-buffer floor), which is a distinct knob: this
+         * one bounds how stale a group may be, that one how much to hold before
+         * presenting.
+         */maxAgeUs: UInt64? = nil) {
         self.format = format
         self.sampleRate = sampleRate
         self.channels = channels
-        self.latencyMaxMs = latencyMaxMs
+        self.maxAgeUs = maxAgeUs
     }
 
     
@@ -8027,18 +9616,18 @@ public struct FfiConverterTypeMoqAudioDecoderOutput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqAudioDecoderOutput {
         return
             try MoqAudioDecoderOutput(
-                format: FfiConverterTypeMoqAudioFormat.read(from: &buf), 
+                format: FfiConverterTypeMoqAudioSampleFormat.read(from: &buf), 
                 sampleRate: FfiConverterOptionUInt32.read(from: &buf), 
                 channels: FfiConverterOptionUInt32.read(from: &buf), 
-                latencyMaxMs: FfiConverterOptionUInt64.read(from: &buf)
+                maxAgeUs: FfiConverterOptionUInt64.read(from: &buf)
         )
     }
 
     public static func write(_ value: MoqAudioDecoderOutput, into buf: inout [UInt8]) {
-        FfiConverterTypeMoqAudioFormat.write(value.format, into: &buf)
+        FfiConverterTypeMoqAudioSampleFormat.write(value.format, into: &buf)
         FfiConverterOptionUInt32.write(value.sampleRate, into: &buf)
         FfiConverterOptionUInt32.write(value.channels, into: &buf)
-        FfiConverterOptionUInt64.write(value.latencyMaxMs, into: &buf)
+        FfiConverterOptionUInt64.write(value.maxAgeUs, into: &buf)
     }
 }
 
@@ -8062,13 +9651,13 @@ public func FfiConverterTypeMoqAudioDecoderOutput_lower(_ value: MoqAudioDecoder
  * PCM layout the caller will pass to [`MoqAudioProducer::write`].
  */
 public struct MoqAudioEncoderInput: Equatable, Hashable {
-    public var format: MoqAudioFormat
+    public var format: MoqAudioSampleFormat
     public var sampleRate: UInt32
     public var channels: UInt32
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(format: MoqAudioFormat, sampleRate: UInt32, channels: UInt32) {
+    public init(format: MoqAudioSampleFormat, sampleRate: UInt32, channels: UInt32) {
         self.format = format
         self.sampleRate = sampleRate
         self.channels = channels
@@ -8090,14 +9679,14 @@ public struct FfiConverterTypeMoqAudioEncoderInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqAudioEncoderInput {
         return
             try MoqAudioEncoderInput(
-                format: FfiConverterTypeMoqAudioFormat.read(from: &buf), 
+                format: FfiConverterTypeMoqAudioSampleFormat.read(from: &buf), 
                 sampleRate: FfiConverterUInt32.read(from: &buf), 
                 channels: FfiConverterUInt32.read(from: &buf)
         )
     }
 
     public static func write(_ value: MoqAudioEncoderInput, into buf: inout [UInt8]) {
-        FfiConverterTypeMoqAudioFormat.write(value.format, into: &buf)
+        FfiConverterTypeMoqAudioSampleFormat.write(value.format, into: &buf)
         FfiConverterUInt32.write(value.sampleRate, into: &buf)
         FfiConverterUInt32.write(value.channels, into: &buf)
     }
@@ -8124,29 +9713,31 @@ public func FfiConverterTypeMoqAudioEncoderInput_lower(_ value: MoqAudioEncoderI
  * "match the input (snapping the rate up to a libopus-supported
  * value if necessary)".
  */
-public struct MoqAudioEncoderOutput: Equatable, Hashable {
+public struct MoqAudioEncoderOutput {
     public var codec: MoqAudioCodec
     public var sampleRate: UInt32?
     public var channels: UInt32?
     public var bitrate: UInt32?
     /**
-     * Encoded frame duration in milliseconds. Opus accepts
-     * 2.5/5/10/20/40/60 ms; pass 20 to match the JS publish path.
+     * Encoded frame duration in microseconds. Opus accepts exactly
+     * 2500/5000/10000/20000/40000/60000 us, and the default 20 ms matches the
+     * JS publish path.
      */
-    public var frameDurationMs: UInt32
+    public var frameDurationUs: UInt32
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
     public init(codec: MoqAudioCodec, sampleRate: UInt32? = nil, channels: UInt32? = nil, bitrate: UInt32? = nil, 
         /**
-         * Encoded frame duration in milliseconds. Opus accepts
-         * 2.5/5/10/20/40/60 ms; pass 20 to match the JS publish path.
-         */frameDurationMs: UInt32) {
+         * Encoded frame duration in microseconds. Opus accepts exactly
+         * 2500/5000/10000/20000/40000/60000 us, and the default 20 ms matches the
+         * JS publish path.
+         */frameDurationUs: UInt32 = UInt32(20000)) {
         self.codec = codec
         self.sampleRate = sampleRate
         self.channels = channels
         self.bitrate = bitrate
-        self.frameDurationMs = frameDurationMs
+        self.frameDurationUs = frameDurationUs
     }
 
     
@@ -8169,7 +9760,7 @@ public struct FfiConverterTypeMoqAudioEncoderOutput: FfiConverterRustBuffer {
                 sampleRate: FfiConverterOptionUInt32.read(from: &buf), 
                 channels: FfiConverterOptionUInt32.read(from: &buf), 
                 bitrate: FfiConverterOptionUInt32.read(from: &buf), 
-                frameDurationMs: FfiConverterUInt32.read(from: &buf)
+                frameDurationUs: FfiConverterUInt32.read(from: &buf)
         )
     }
 
@@ -8178,7 +9769,7 @@ public struct FfiConverterTypeMoqAudioEncoderOutput: FfiConverterRustBuffer {
         FfiConverterOptionUInt32.write(value.sampleRate, into: &buf)
         FfiConverterOptionUInt32.write(value.channels, into: &buf)
         FfiConverterOptionUInt32.write(value.bitrate, into: &buf)
-        FfiConverterUInt32.write(value.frameDurationMs, into: &buf)
+        FfiConverterUInt32.write(value.frameDurationUs, into: &buf)
     }
 }
 
@@ -8272,6 +9863,183 @@ public func FfiConverterTypeMoqAudioFrame_lower(_ value: MoqAudioFrame) -> RustB
 }
 
 
+/**
+ * What an audio publish needs: a format, its codec init bytes, and an optional label.
+ *
+ * `data` is required: an audio importer cannot resolve its config from frames, so it needs the
+ * OpusHead / AudioSpecificConfig / STREAMINFO up front.
+ */
+public struct MoqAudioInit: Equatable, Hashable {
+    /**
+     * The audio codec.
+     */
+    public var format: MoqAudioFormat
+    /**
+     * Codec init bytes. Required: audio has no in-band config.
+     */
+    public var data: Data
+    /**
+     * Human-readable rendition name for a track picker.
+     */
+    public var label: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The audio codec.
+         */format: MoqAudioFormat, 
+        /**
+         * Codec init bytes. Required: audio has no in-band config.
+         */data: Data, 
+        /**
+         * Human-readable rendition name for a track picker.
+         */label: String? = nil) {
+        self.format = format
+        self.data = data
+        self.label = label
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension MoqAudioInit: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqAudioInit: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqAudioInit {
+        return
+            try MoqAudioInit(
+                format: FfiConverterTypeMoqAudioFormat.read(from: &buf), 
+                data: FfiConverterData.read(from: &buf), 
+                label: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MoqAudioInit, into buf: inout [UInt8]) {
+        FfiConverterTypeMoqAudioFormat.write(value.format, into: &buf)
+        FfiConverterData.write(value.data, into: &buf)
+        FfiConverterOptionString.write(value.label, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqAudioInit_lift(_ buf: RustBuffer) throws -> MoqAudioInit {
+    return try FfiConverterTypeMoqAudioInit.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqAudioInit_lower(_ value: MoqAudioInit) -> RustBuffer {
+    return FfiConverterTypeMoqAudioInit.lower(value)
+}
+
+
+/**
+ * Retry pacing for the automatic reconnect (see [`MoqClient::set_backoff`]).
+ *
+ * The delay starts at `initial_us`, multiplies by `multiplier` after each failed
+ * attempt, and caps at `max_us`. After `timeout_us` of consecutive failures the
+ * connection gives up for good (0 retries forever); the window resets whenever a
+ * session stays up past `initial_us`. The defaults mirror the native
+ * [`moq_tokio::Backoff`]: 1s, x2, 5s, and a 10s window.
+ */
+public struct MoqBackoff: Equatable, Hashable {
+    /**
+     * Delay before the first reconnect attempt, in microseconds.
+     */
+    public var initialUs: UInt64
+    /**
+     * Multiplier applied to the delay after each failure.
+     */
+    public var multiplier: UInt32
+    /**
+     * Maximum delay between reconnect attempts, in microseconds.
+     */
+    public var maxUs: UInt64
+    /**
+     * Time spent retrying before giving up, in microseconds. 0 retries forever.
+     */
+    public var timeoutUs: UInt64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Delay before the first reconnect attempt, in microseconds.
+         */initialUs: UInt64 = UInt64(1000000), 
+        /**
+         * Multiplier applied to the delay after each failure.
+         */multiplier: UInt32 = UInt32(2), 
+        /**
+         * Maximum delay between reconnect attempts, in microseconds.
+         */maxUs: UInt64 = UInt64(5000000), 
+        /**
+         * Time spent retrying before giving up, in microseconds. 0 retries forever.
+         */timeoutUs: UInt64 = UInt64(10000000)) {
+        self.initialUs = initialUs
+        self.multiplier = multiplier
+        self.maxUs = maxUs
+        self.timeoutUs = timeoutUs
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension MoqBackoff: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqBackoff: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqBackoff {
+        return
+            try MoqBackoff(
+                initialUs: FfiConverterUInt64.read(from: &buf), 
+                multiplier: FfiConverterUInt32.read(from: &buf), 
+                maxUs: FfiConverterUInt64.read(from: &buf), 
+                timeoutUs: FfiConverterUInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MoqBackoff, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.initialUs, into: &buf)
+        FfiConverterUInt32.write(value.multiplier, into: &buf)
+        FfiConverterUInt64.write(value.maxUs, into: &buf)
+        FfiConverterUInt64.write(value.timeoutUs, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqBackoff_lift(_ buf: RustBuffer) throws -> MoqBackoff {
+    return try FfiConverterTypeMoqBackoff.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqBackoff_lower(_ value: MoqBackoff) -> RustBuffer {
+    return FfiConverterTypeMoqBackoff.lower(value)
+}
+
+
 public struct MoqCatalog: Equatable, Hashable {
     public var video: [String: MoqVideo]
     public var audio: [String: MoqAudio]
@@ -8359,7 +10127,7 @@ public func FfiConverterTypeMoqCatalog_lower(_ value: MoqCatalog) -> RustBuffer 
  *
  * Each field is `None` when the transport backend doesn't report that metric (native QUIC
  * reports all of them; the browser WebTransport reports few or none), or when it isn't yet
- * available (e.g. `send_rate_bps` before the congestion controller has a window). A `None` is
+ * available (e.g. `estimated_send_rate_bps` before the congestion controller has a window). A `None` is
  * not the same as a zero value.
  */
 public struct MoqConnectionStats: Equatable, Hashable {
@@ -8370,11 +10138,11 @@ public struct MoqConnectionStats: Equatable, Hashable {
     /**
      * Estimated send bandwidth from the congestion controller, in bits per second.
      */
-    public var sendRateBps: UInt64?
+    public var estimatedSendRateBps: UInt64?
     /**
      * Estimated receive bandwidth from MoQ PROBE, in bits per second.
      */
-    public var recvRateBps: UInt64?
+    public var estimatedRecvRateBps: UInt64?
     /**
      * Total bytes sent, including retransmissions and overhead.
      */
@@ -8408,10 +10176,10 @@ public struct MoqConnectionStats: Equatable, Hashable {
          */rttUs: UInt64?, 
         /**
          * Estimated send bandwidth from the congestion controller, in bits per second.
-         */sendRateBps: UInt64?, 
+         */estimatedSendRateBps: UInt64?, 
         /**
          * Estimated receive bandwidth from MoQ PROBE, in bits per second.
-         */recvRateBps: UInt64?, 
+         */estimatedRecvRateBps: UInt64?, 
         /**
          * Total bytes sent, including retransmissions and overhead.
          */bytesSent: UInt64?, 
@@ -8431,8 +10199,8 @@ public struct MoqConnectionStats: Equatable, Hashable {
          * Total datagrams detected as lost.
          */packetsLost: UInt64?) {
         self.rttUs = rttUs
-        self.sendRateBps = sendRateBps
-        self.recvRateBps = recvRateBps
+        self.estimatedSendRateBps = estimatedSendRateBps
+        self.estimatedRecvRateBps = estimatedRecvRateBps
         self.bytesSent = bytesSent
         self.bytesReceived = bytesReceived
         self.bytesLost = bytesLost
@@ -8458,8 +10226,8 @@ public struct FfiConverterTypeMoqConnectionStats: FfiConverterRustBuffer {
         return
             try MoqConnectionStats(
                 rttUs: FfiConverterOptionUInt64.read(from: &buf), 
-                sendRateBps: FfiConverterOptionUInt64.read(from: &buf), 
-                recvRateBps: FfiConverterOptionUInt64.read(from: &buf), 
+                estimatedSendRateBps: FfiConverterOptionUInt64.read(from: &buf), 
+                estimatedRecvRateBps: FfiConverterOptionUInt64.read(from: &buf), 
                 bytesSent: FfiConverterOptionUInt64.read(from: &buf), 
                 bytesReceived: FfiConverterOptionUInt64.read(from: &buf), 
                 bytesLost: FfiConverterOptionUInt64.read(from: &buf), 
@@ -8471,8 +10239,8 @@ public struct FfiConverterTypeMoqConnectionStats: FfiConverterRustBuffer {
 
     public static func write(_ value: MoqConnectionStats, into buf: inout [UInt8]) {
         FfiConverterOptionUInt64.write(value.rttUs, into: &buf)
-        FfiConverterOptionUInt64.write(value.sendRateBps, into: &buf)
-        FfiConverterOptionUInt64.write(value.recvRateBps, into: &buf)
+        FfiConverterOptionUInt64.write(value.estimatedSendRateBps, into: &buf)
+        FfiConverterOptionUInt64.write(value.estimatedRecvRateBps, into: &buf)
         FfiConverterOptionUInt64.write(value.bytesSent, into: &buf)
         FfiConverterOptionUInt64.write(value.bytesReceived, into: &buf)
         FfiConverterOptionUInt64.write(value.bytesLost, into: &buf)
@@ -8495,6 +10263,78 @@ public func FfiConverterTypeMoqConnectionStats_lift(_ buf: RustBuffer) throws ->
 #endif
 public func FfiConverterTypeMoqConnectionStats_lower(_ value: MoqConnectionStats) -> RustBuffer {
     return FfiConverterTypeMoqConnectionStats.lower(value)
+}
+
+
+/**
+ * What a container publish needs: a format and its leading bytes.
+ *
+ * A container publishes and describes its own tracks, so there is no label or hint here: a
+ * rendition field would have no single track to land on.
+ */
+public struct MoqContainerInit: Equatable, Hashable {
+    /**
+     * The container format.
+     */
+    public var format: MoqContainerFormat
+    /**
+     * The leading chunk of the container, decoded immediately. May be empty.
+     */
+    public var data: Data
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The container format.
+         */format: MoqContainerFormat, 
+        /**
+         * The leading chunk of the container, decoded immediately. May be empty.
+         */data: Data) {
+        self.format = format
+        self.data = data
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension MoqContainerInit: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqContainerInit: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqContainerInit {
+        return
+            try MoqContainerInit(
+                format: FfiConverterTypeMoqContainerFormat.read(from: &buf), 
+                data: FfiConverterData.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MoqContainerInit, into buf: inout [UInt8]) {
+        FfiConverterTypeMoqContainerFormat.write(value.format, into: &buf)
+        FfiConverterData.write(value.data, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqContainerInit_lift(_ buf: RustBuffer) throws -> MoqContainerInit {
+    return try FfiConverterTypeMoqContainerInit.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqContainerInit_lower(_ value: MoqContainerInit) -> RustBuffer {
+    return FfiConverterTypeMoqContainerInit.lower(value)
 }
 
 
@@ -8767,91 +10607,6 @@ public func FfiConverterTypeMoqFrame_lower(_ value: MoqFrame) -> RustBuffer {
 
 
 /**
- * What a single-track media publish needs: a format, its init bytes, and optional video fields.
- *
- * `format` selects the codec (e.g. `"opus"`, `"avc3"`); `data` carries the codec init bytes (an
- * OpusHead, an avcC, an AudioSpecificConfig, ...). Audio formats need those bytes up front; video
- * formats may resolve in band, and a [`video`](Self::video) hint pins catalog fields the stream
- * can't reveal (bitrate) or publishes the catalog before the first keyframe. See
- * [`MoqBroadcastProducer::publish_media`](crate::producer::MoqBroadcastProducer::publish_media).
- */
-public struct MoqInit: Equatable, Hashable {
-    /**
-     * The media format, e.g. `"opus"`, `"avc3"`, or `"aac"`.
-     */
-    public var format: String
-    /**
-     * Codec init bytes. Required for audio; may be empty for a video format that resolves in band.
-     */
-    public var data: Data
-    /**
-     * Caller-provided fields for a video track.
-     */
-    public var video: MoqVideoHint?
-
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
-    public init(
-        /**
-         * The media format, e.g. `"opus"`, `"avc3"`, or `"aac"`.
-         */format: String, 
-        /**
-         * Codec init bytes. Required for audio; may be empty for a video format that resolves in band.
-         */data: Data, 
-        /**
-         * Caller-provided fields for a video track.
-         */video: MoqVideoHint? = nil) {
-        self.format = format
-        self.data = data
-        self.video = video
-    }
-
-    
-
-    
-}
-
-#if compiler(>=6)
-extension MoqInit: Sendable {}
-#endif
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMoqInit: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqInit {
-        return
-            try MoqInit(
-                format: FfiConverterString.read(from: &buf), 
-                data: FfiConverterData.read(from: &buf), 
-                video: FfiConverterOptionTypeMoqVideoHint.read(from: &buf)
-        )
-    }
-
-    public static func write(_ value: MoqInit, into buf: inout [UInt8]) {
-        FfiConverterString.write(value.format, into: &buf)
-        FfiConverterData.write(value.data, into: &buf)
-        FfiConverterOptionTypeMoqVideoHint.write(value.video, into: &buf)
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMoqInit_lift(_ buf: RustBuffer) throws -> MoqInit {
-    return try FfiConverterTypeMoqInit.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMoqInit_lower(_ value: MoqInit) -> RustBuffer {
-    return FfiConverterTypeMoqInit.lower(value)
-}
-
-
-/**
  * Options for a JSON snapshot track (lossy latest-value mode).
  *
  * The same config is passed to both the producer and the consumer, but the consumer reads only
@@ -9001,7 +10756,7 @@ public struct MoqMediaFrame: Equatable, Hashable {
      */
     public var timestampUs: UInt64
     /**
-     * Whether this frame can be decoded without any earlier frame.
+     * Whether this frame opens a group or is a video keyframe; audio is true only at a group start.
      */
     public var keyframe: Bool
 
@@ -9015,7 +10770,7 @@ public struct MoqMediaFrame: Equatable, Hashable {
          * Presentation timestamp in microseconds.
          */timestampUs: UInt64, 
         /**
-         * Whether this frame can be decoded without any earlier frame.
+         * Whether this frame opens a group or is a video keyframe; audio is true only at a group start.
          */keyframe: Bool) {
         self.payload = payload
         self.timestampUs = timestampUs
@@ -9068,9 +10823,9 @@ public func FfiConverterTypeMoqMediaFrame_lower(_ value: MoqMediaFrame) -> RustB
 
 
 /**
- * Options used when creating an origin.
+ * Config used when creating an origin.
  */
-public struct MoqOriginOptions: Equatable, Hashable {
+public struct MoqOriginConfig: Equatable, Hashable {
     /**
      * Maximum cached group bytes across broadcasts under this origin. Null is unbounded.
      */
@@ -9091,21 +10846,21 @@ public struct MoqOriginOptions: Equatable, Hashable {
 }
 
 #if compiler(>=6)
-extension MoqOriginOptions: Sendable {}
+extension MoqOriginConfig: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeMoqOriginOptions: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqOriginOptions {
+public struct FfiConverterTypeMoqOriginConfig: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqOriginConfig {
         return
-            try MoqOriginOptions(
+            try MoqOriginConfig(
                 cacheCapacityBytes: FfiConverterOptionUInt64.read(from: &buf)
         )
     }
 
-    public static func write(_ value: MoqOriginOptions, into buf: inout [UInt8]) {
+    public static func write(_ value: MoqOriginConfig, into buf: inout [UInt8]) {
         FfiConverterOptionUInt64.write(value.cacheCapacityBytes, into: &buf)
     }
 }
@@ -9114,56 +10869,170 @@ public struct FfiConverterTypeMoqOriginOptions: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeMoqOriginOptions_lift(_ buf: RustBuffer) throws -> MoqOriginOptions {
-    return try FfiConverterTypeMoqOriginOptions.lift(buf)
+public func FfiConverterTypeMoqOriginConfig_lift(_ buf: RustBuffer) throws -> MoqOriginConfig {
+    return try FfiConverterTypeMoqOriginConfig.lift(buf)
 }
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeMoqOriginOptions_lower(_ value: MoqOriginOptions) -> RustBuffer {
-    return FfiConverterTypeMoqOriginOptions.lower(value)
+public func FfiConverterTypeMoqOriginConfig_lower(_ value: MoqOriginConfig) -> RustBuffer {
+    return FfiConverterTypeMoqOriginConfig.lower(value)
 }
 
 
 /**
- * The path a broadcast takes to reach this origin, and how preferable it is.
- *
- * Dynamic: it changes when the serving route fails over or the publisher
- * re-advertises itself. Publish changes with `MoqBroadcastProducer::set_route`
- * and observe them with `MoqBroadcastConsumer::route_updates`.
+ * A protocol failure a peer sent (or this side will send): scope, verbatim code, kind,
+ * and a diagnostic message.
  */
-public struct MoqRoute: Equatable, Hashable {
+public struct MoqProtocolError: Equatable, Hashable {
     /**
-     * Origin ids of the relay hops the broadcast traversed, oldest first.
+     * Whether this code is from the session or stream registry.
      */
-    public var hops: [UInt64]
+    public var scope: MoqErrorScope
     /**
-     * Preference among routes serving the same broadcast: lower wins.
+     * The integer on the wire, kept verbatim. Do not re-derive this from [`Self::kind`]:
+     * App and Unknown each cover many codes, and the same kind is a different integer in each scope.
      */
-    public var cost: UInt64
+    public var code: UInt32
     /**
-     * Whether the broadcast is announced: advertised to subscribers via the origin.
-     * An unannounced broadcast stays reachable by exact path for subscribes and fetches.
+     * The known kind when the code is recognized, otherwise [`MoqProtocolKind::App`] or
+     * [`MoqProtocolKind::Unknown`].
      */
-    public var announce: Bool
+    public var kind: MoqProtocolKind
+    /**
+     * Human-readable reason, for logs. Do not parse this.
+     */
+    public var message: String
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
     public init(
         /**
-         * Origin ids of the relay hops the broadcast traversed, oldest first.
+         * Whether this code is from the session or stream registry.
+         */scope: MoqErrorScope, 
+        /**
+         * The integer on the wire, kept verbatim. Do not re-derive this from [`Self::kind`]:
+         * App and Unknown each cover many codes, and the same kind is a different integer in each scope.
+         */code: UInt32, 
+        /**
+         * The known kind when the code is recognized, otherwise [`MoqProtocolKind::App`] or
+         * [`MoqProtocolKind::Unknown`].
+         */kind: MoqProtocolKind, 
+        /**
+         * Human-readable reason, for logs. Do not parse this.
+         */message: String) {
+        self.scope = scope
+        self.code = code
+        self.kind = kind
+        self.message = message
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension MoqProtocolError: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqProtocolError: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqProtocolError {
+        return
+            try MoqProtocolError(
+                scope: FfiConverterTypeMoqErrorScope.read(from: &buf), 
+                code: FfiConverterUInt32.read(from: &buf), 
+                kind: FfiConverterTypeMoqProtocolKind.read(from: &buf), 
+                message: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MoqProtocolError, into buf: inout [UInt8]) {
+        FfiConverterTypeMoqErrorScope.write(value.scope, into: &buf)
+        FfiConverterUInt32.write(value.code, into: &buf)
+        FfiConverterTypeMoqProtocolKind.write(value.kind, into: &buf)
+        FfiConverterString.write(value.message, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqProtocolError_lift(_ buf: RustBuffer) throws -> MoqProtocolError {
+    return try FfiConverterTypeMoqProtocolError.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqProtocolError_lower(_ value: MoqProtocolError) -> RustBuffer {
+    return FfiConverterTypeMoqProtocolError.lower(value)
+}
+
+
+/**
+ * A path-prefix route: hops and costs for an advertisement.
+ *
+ * Pair one with `MoqBroadcastProducer::announce` for an exact path, or with
+ * `MoqOriginProducer::dynamic` for a prefix. Observe them with
+ * `MoqOriginConsumer::announced`. A route claims capability, not inventory: a publisher advertises each broadcast's exact path to peers once ready,
+ * while local consumers can enumerate it from creation, while a service advertises a prefix and answers
+ * whatever is requested beneath it.
+ */
+public struct MoqRoute: Equatable, Hashable {
+    /**
+     * Hop ids of the relay hops the route traversed, oldest first. 0 is the
+     * anonymous mark and is legal on a received chain.
+     */
+    public var hops: [UInt64]
+    /**
+     * Preference among routes covering the same prefix: lower wins. A publisher
+     * sets its production cost here: zero for content it is already producing,
+     * larger for content it would have to start producing on demand.
+     */
+    public var cost: UInt64
+    /**
+     * The same path with every warm discount removed: what pulling the content
+     * would cost if no relay along it were carrying anything. `None` means the
+     * same as `cost`, which is right for a publisher seeding a production cost.
+     */
+    public var cold: UInt64?
+    /**
+     * Whether the chain holds a 0 anywhere. An anonymous route ranks below every
+     * fully identified one, whatever the costs say.
+     */
+    public var anonymous: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Hop ids of the relay hops the route traversed, oldest first. 0 is the
+         * anonymous mark and is legal on a received chain.
          */hops: [UInt64] = [], 
         /**
-         * Preference among routes serving the same broadcast: lower wins.
+         * Preference among routes covering the same prefix: lower wins. A publisher
+         * sets its production cost here: zero for content it is already producing,
+         * larger for content it would have to start producing on demand.
          */cost: UInt64 = UInt64(0), 
         /**
-         * Whether the broadcast is announced: advertised to subscribers via the origin.
-         * An unannounced broadcast stays reachable by exact path for subscribes and fetches.
-         */announce: Bool = false) {
+         * The same path with every warm discount removed: what pulling the content
+         * would cost if no relay along it were carrying anything. `None` means the
+         * same as `cost`, which is right for a publisher seeding a production cost.
+         */cold: UInt64? = nil, 
+        /**
+         * Whether the chain holds a 0 anywhere. An anonymous route ranks below every
+         * fully identified one, whatever the costs say.
+         */anonymous: Bool = false) {
         self.hops = hops
         self.cost = cost
-        self.announce = announce
+        self.cold = cold
+        self.anonymous = anonymous
     }
 
     
@@ -9184,14 +11053,16 @@ public struct FfiConverterTypeMoqRoute: FfiConverterRustBuffer {
             try MoqRoute(
                 hops: FfiConverterSequenceUInt64.read(from: &buf), 
                 cost: FfiConverterUInt64.read(from: &buf), 
-                announce: FfiConverterBool.read(from: &buf)
+                cold: FfiConverterOptionUInt64.read(from: &buf), 
+                anonymous: FfiConverterBool.read(from: &buf)
         )
     }
 
     public static func write(_ value: MoqRoute, into buf: inout [UInt8]) {
         FfiConverterSequenceUInt64.write(value.hops, into: &buf)
         FfiConverterUInt64.write(value.cost, into: &buf)
-        FfiConverterBool.write(value.announce, into: &buf)
+        FfiConverterOptionUInt64.write(value.cold, into: &buf)
+        FfiConverterBool.write(value.anonymous, into: &buf)
     }
 }
 
@@ -9215,7 +11086,7 @@ public func FfiConverterTypeMoqRoute_lower(_ value: MoqRoute) -> RustBuffer {
  * Subscriber-side delivery preferences, mirroring [`moq_net::track::Subscription`].
  *
  * Construct with the fields you care about; the rest default to moq-net's defaults
- * (priority 0, unordered, no staleness tolerance, full group range).
+ * (priority 0, no staleness tolerance, full group range).
  */
 public struct MoqSubscription: Equatable, Hashable {
     /**
@@ -9223,25 +11094,23 @@ public struct MoqSubscription: Equatable, Hashable {
      */
     public var priority: UInt8
     /**
-     * Whether groups are prioritized in sequence order. Groups may always arrive
-     * out-of-order (or not at all) over the network. Defaults to `false`; the
-     * aggregate is ordered only when every subscriber asks for it.
-     */
-    public var ordered: Bool
-    /**
-     * Maximum age of a non-latest group before it is skipped, in milliseconds.
+     * Maximum age of a non-latest group before it is skipped, in microseconds.
      * `0` skips immediately; a larger value tolerates that much reordering.
      *
      * Enforced both by the publisher's cache (sent on the wire) and by any local
      * buffering, such as `subscribe_media`'s jitter buffer.
      */
-    public var latencyMaxMs: UInt64
+    public var maxAgeUs: UInt64
     /**
-     * First group to deliver, or null to start at the latest group.
+     * The lowest group to deliver (a floor), or null for none. A floor is not a
+     * request: `max_age_us` is what asks for data, and delivery starts at the oldest
+     * group at or above the floor within that budget (the latest group at the default
+     * budget of 0).
      */
     public var groupStart: UInt64?
     /**
-     * Last group to deliver (inclusive), or null for no end.
+     * First group not to deliver (exclusive), or null for no end. `Some(0)` is the
+     * empty range.
      */
     public var groupEnd: UInt64?
 
@@ -9252,26 +11121,24 @@ public struct MoqSubscription: Equatable, Hashable {
          * Delivery priority; higher values preempt lower ones under bandwidth contention.
          */priority: UInt8 = UInt8(0), 
         /**
-         * Whether groups are prioritized in sequence order. Groups may always arrive
-         * out-of-order (or not at all) over the network. Defaults to `false`; the
-         * aggregate is ordered only when every subscriber asks for it.
-         */ordered: Bool = false, 
-        /**
-         * Maximum age of a non-latest group before it is skipped, in milliseconds.
+         * Maximum age of a non-latest group before it is skipped, in microseconds.
          * `0` skips immediately; a larger value tolerates that much reordering.
          *
          * Enforced both by the publisher's cache (sent on the wire) and by any local
          * buffering, such as `subscribe_media`'s jitter buffer.
-         */latencyMaxMs: UInt64 = UInt64(0), 
+         */maxAgeUs: UInt64 = UInt64(0), 
         /**
-         * First group to deliver, or null to start at the latest group.
+         * The lowest group to deliver (a floor), or null for none. A floor is not a
+         * request: `max_age_us` is what asks for data, and delivery starts at the oldest
+         * group at or above the floor within that budget (the latest group at the default
+         * budget of 0).
          */groupStart: UInt64? = nil, 
         /**
-         * Last group to deliver (inclusive), or null for no end.
+         * First group not to deliver (exclusive), or null for no end. `Some(0)` is the
+         * empty range.
          */groupEnd: UInt64? = nil) {
         self.priority = priority
-        self.ordered = ordered
-        self.latencyMaxMs = latencyMaxMs
+        self.maxAgeUs = maxAgeUs
         self.groupStart = groupStart
         self.groupEnd = groupEnd
     }
@@ -9293,8 +11160,7 @@ public struct FfiConverterTypeMoqSubscription: FfiConverterRustBuffer {
         return
             try MoqSubscription(
                 priority: FfiConverterUInt8.read(from: &buf), 
-                ordered: FfiConverterBool.read(from: &buf), 
-                latencyMaxMs: FfiConverterUInt64.read(from: &buf), 
+                maxAgeUs: FfiConverterUInt64.read(from: &buf), 
                 groupStart: FfiConverterOptionUInt64.read(from: &buf), 
                 groupEnd: FfiConverterOptionUInt64.read(from: &buf)
         )
@@ -9302,8 +11168,7 @@ public struct FfiConverterTypeMoqSubscription: FfiConverterRustBuffer {
 
     public static func write(_ value: MoqSubscription, into buf: inout [UInt8]) {
         FfiConverterUInt8.write(value.priority, into: &buf)
-        FfiConverterBool.write(value.ordered, into: &buf)
-        FfiConverterUInt64.write(value.latencyMaxMs, into: &buf)
+        FfiConverterUInt64.write(value.maxAgeUs, into: &buf)
         FfiConverterOptionUInt64.write(value.groupStart, into: &buf)
         FfiConverterOptionUInt64.write(value.groupEnd, into: &buf)
     }
@@ -9329,7 +11194,7 @@ public func FfiConverterTypeMoqSubscription_lower(_ value: MoqSubscription) -> R
  * Publisher-side track properties, mirroring [`moq_net::track::Info`].
  *
  * Construct with the fields you care about; the rest use raw-track defaults
- * (priority 0, unordered, default latency budget, microsecond timescale).
+ * (priority 0, the publisher's default max age, microsecond timescale).
  */
 public struct MoqTrackInfo: Equatable, Hashable {
     /**
@@ -9337,16 +11202,11 @@ public struct MoqTrackInfo: Equatable, Hashable {
      */
     public var priority: UInt8
     /**
-     * Whether groups are prioritized in sequence order. Groups may always arrive
-     * out-of-order (or not at all) over the network. Defaults to false.
-     */
-    public var ordered: Bool
-    /**
      * Maximum age of a non-latest group before the publisher evicts it, in
-     * milliseconds. Null uses the default. This is the publisher-side half of
-     * [`MoqSubscription::latency_max_ms`](crate::consumer::MoqSubscription::latency_max_ms).
+     * microseconds. Null uses the default. This is the publisher-side half of
+     * [`MoqSubscription::max_age_us`](crate::consumer::MoqSubscription::max_age_us).
      */
-    public var latencyMaxMs: UInt64?
+    public var maxAgeUs: UInt64?
     /**
      * Per-frame timescale in ticks per second. Null uses microseconds.
      */
@@ -9359,20 +11219,15 @@ public struct MoqTrackInfo: Equatable, Hashable {
          * Priority, used only to break ties between subscriptions of equal subscriber priority.
          */priority: UInt8 = UInt8(0), 
         /**
-         * Whether groups are prioritized in sequence order. Groups may always arrive
-         * out-of-order (or not at all) over the network. Defaults to false.
-         */ordered: Bool = false, 
-        /**
          * Maximum age of a non-latest group before the publisher evicts it, in
-         * milliseconds. Null uses the default. This is the publisher-side half of
-         * [`MoqSubscription::latency_max_ms`](crate::consumer::MoqSubscription::latency_max_ms).
-         */latencyMaxMs: UInt64? = nil, 
+         * microseconds. Null uses the default. This is the publisher-side half of
+         * [`MoqSubscription::max_age_us`](crate::consumer::MoqSubscription::max_age_us).
+         */maxAgeUs: UInt64? = nil, 
         /**
          * Per-frame timescale in ticks per second. Null uses microseconds.
          */timescale: UInt64? = nil) {
         self.priority = priority
-        self.ordered = ordered
-        self.latencyMaxMs = latencyMaxMs
+        self.maxAgeUs = maxAgeUs
         self.timescale = timescale
     }
 
@@ -9393,16 +11248,14 @@ public struct FfiConverterTypeMoqTrackInfo: FfiConverterRustBuffer {
         return
             try MoqTrackInfo(
                 priority: FfiConverterUInt8.read(from: &buf), 
-                ordered: FfiConverterBool.read(from: &buf), 
-                latencyMaxMs: FfiConverterOptionUInt64.read(from: &buf), 
+                maxAgeUs: FfiConverterOptionUInt64.read(from: &buf), 
                 timescale: FfiConverterOptionUInt64.read(from: &buf)
         )
     }
 
     public static func write(_ value: MoqTrackInfo, into buf: inout [UInt8]) {
         FfiConverterUInt8.write(value.priority, into: &buf)
-        FfiConverterBool.write(value.ordered, into: &buf)
-        FfiConverterOptionUInt64.write(value.latencyMaxMs, into: &buf)
+        FfiConverterOptionUInt64.write(value.maxAgeUs, into: &buf)
         FfiConverterOptionUInt64.write(value.timescale, into: &buf)
     }
 }
@@ -9424,6 +11277,15 @@ public func FfiConverterTypeMoqTrackInfo_lower(_ value: MoqTrackInfo) -> RustBuf
 
 
 public struct MoqVideo: Equatable, Hashable {
+    /**
+     * Human-readable rendition name for track pickers.
+     */
+    public var label: String?
+    /**
+     * The broadcast serving this rendition's track, relative to the catalog's own broadcast
+     * (e.g. `./source`). Absent or empty means the catalog's broadcast.
+     */
+    public var broadcast: String?
     public var codec: String
     public var description: Data?
     public var coded: MoqDimensions?
@@ -9438,10 +11300,19 @@ public struct MoqVideo: Equatable, Hashable {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(codec: String, description: Data?, coded: MoqDimensions?, displayAspect: MoqDimensions?, bitrate: UInt64?, 
+    public init(
+        /**
+         * Human-readable rendition name for track pickers.
+         */label: String? = nil, 
+        /**
+         * The broadcast serving this rendition's track, relative to the catalog's own broadcast
+         * (e.g. `./source`). Absent or empty means the catalog's broadcast.
+         */broadcast: String? = nil, codec: String, description: Data?, coded: MoqDimensions?, displayAspect: MoqDimensions?, bitrate: UInt64?, 
         /**
          * Whether the publisher recommends temporarily avoiding this rendition.
          */stalled: Bool = false, framerate: Double?, container: MoqContainer) {
+        self.label = label
+        self.broadcast = broadcast
         self.codec = codec
         self.description = description
         self.coded = coded
@@ -9468,6 +11339,8 @@ public struct FfiConverterTypeMoqVideo: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqVideo {
         return
             try MoqVideo(
+                label: FfiConverterOptionString.read(from: &buf), 
+                broadcast: FfiConverterOptionString.read(from: &buf), 
                 codec: FfiConverterString.read(from: &buf), 
                 description: FfiConverterOptionData.read(from: &buf), 
                 coded: FfiConverterOptionTypeMoqDimensions.read(from: &buf), 
@@ -9480,6 +11353,8 @@ public struct FfiConverterTypeMoqVideo: FfiConverterRustBuffer {
     }
 
     public static func write(_ value: MoqVideo, into buf: inout [UInt8]) {
+        FfiConverterOptionString.write(value.label, into: &buf)
+        FfiConverterOptionString.write(value.broadcast, into: &buf)
         FfiConverterString.write(value.codec, into: &buf)
         FfiConverterOptionData.write(value.description, into: &buf)
         FfiConverterOptionTypeMoqDimensions.write(value.coded, into: &buf)
@@ -9504,6 +11379,221 @@ public func FfiConverterTypeMoqVideo_lift(_ buf: RustBuffer) throws -> MoqVideo 
 #endif
 public func FfiConverterTypeMoqVideo_lower(_ value: MoqVideo) -> RustBuffer {
     return FfiConverterTypeMoqVideo.lower(value)
+}
+
+
+/**
+ * One decoded video frame: packed pixels plus the layout and size they
+ * actually decoded to.
+ *
+ * Unlike [`MoqVideoFrame`] on the publish side, this carries dimensions: there
+ * they are fixed by the encoder config, here they are whatever the stream
+ * turned out to be, and `resize` is only best effort.
+ */
+public struct MoqVideoDecodedFrame: Equatable, Hashable {
+    /**
+     * Presentation timestamp, in microseconds.
+     */
+    public var timestampUs: UInt64
+    /**
+     * Frame width in pixels.
+     */
+    public var width: UInt32
+    /**
+     * Frame height in pixels.
+     */
+    public var height: UInt32
+    /**
+     * The pixels, in `format`: I420 is Y, then U, then V (`width * height * 3 /
+     * 2` bytes); RGBA is `width * height * 4` bytes. Neither has row padding.
+     */
+    public var data: Data
+    /**
+     * The layout `data` is in, which is what
+     * [`MoqVideoDecoderOutput::format`] asked for.
+     */
+    public var format: MoqVideoPixelFormat
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Presentation timestamp, in microseconds.
+         */timestampUs: UInt64, 
+        /**
+         * Frame width in pixels.
+         */width: UInt32, 
+        /**
+         * Frame height in pixels.
+         */height: UInt32, 
+        /**
+         * The pixels, in `format`: I420 is Y, then U, then V (`width * height * 3 /
+         * 2` bytes); RGBA is `width * height * 4` bytes. Neither has row padding.
+         */data: Data, 
+        /**
+         * The layout `data` is in, which is what
+         * [`MoqVideoDecoderOutput::format`] asked for.
+         */format: MoqVideoPixelFormat) {
+        self.timestampUs = timestampUs
+        self.width = width
+        self.height = height
+        self.data = data
+        self.format = format
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension MoqVideoDecodedFrame: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqVideoDecodedFrame: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqVideoDecodedFrame {
+        return
+            try MoqVideoDecodedFrame(
+                timestampUs: FfiConverterUInt64.read(from: &buf), 
+                width: FfiConverterUInt32.read(from: &buf), 
+                height: FfiConverterUInt32.read(from: &buf), 
+                data: FfiConverterData.read(from: &buf), 
+                format: FfiConverterTypeMoqVideoPixelFormat.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MoqVideoDecodedFrame, into buf: inout [UInt8]) {
+        FfiConverterUInt64.write(value.timestampUs, into: &buf)
+        FfiConverterUInt32.write(value.width, into: &buf)
+        FfiConverterUInt32.write(value.height, into: &buf)
+        FfiConverterData.write(value.data, into: &buf)
+        FfiConverterTypeMoqVideoPixelFormat.write(value.format, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoDecodedFrame_lift(_ buf: RustBuffer) throws -> MoqVideoDecodedFrame {
+    return try FfiConverterTypeMoqVideoDecodedFrame.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoDecodedFrame_lower(_ value: MoqVideoDecodedFrame) -> RustBuffer {
+    return FfiConverterTypeMoqVideoDecodedFrame.lower(value)
+}
+
+
+/**
+ * How a subscriber wants decoded video delivered.
+ *
+ * A decoder's native output is flattened to CPU pixels at delivery, since the
+ * FFI boundary can't hand back a GPU surface; `format` picks the layout it is
+ * flattened to.
+ */
+public struct MoqVideoDecoderOutput: Equatable, Hashable {
+    /**
+     * Ask the decoder to emit frames at this size instead of the stream's
+     * native one. Best effort: only NVDEC has a built-in scaler and honors it for
+     * free; VideoToolbox, Media Foundation, MediaCodec, VAAPI, V4L2, and openh264
+     * ignore it and decode at the stream's native size. Read each frame's own
+     * dimensions rather than assuming this took. Both dimensions must be even.
+     */
+    public var resize: MoqDimensions?
+    /**
+     * Upper bound on buffering before skipping a stalled group, in
+     * microseconds. Same knob as
+     * [`MoqAudioDecoderOutput::max_age_us`](crate::audio::MoqAudioDecoderOutput::max_age_us).
+     * `None` keeps the moq-mux default of zero (skip aggressively).
+     */
+    public var maxAgeUs: UInt64?
+    /**
+     * CPU pixel layout every frame is delivered in. `None` delivers
+     * [`MoqVideoPixelFormat::I420`], which is what a decoder produces natively,
+     * so asking for RGBA costs a conversion per frame.
+     *
+     * Spelled as an option rather than an I420-valued field because uniffi has no
+     * enum default, and a required field would break every existing caller.
+     */
+    public var format: MoqVideoPixelFormat?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * Ask the decoder to emit frames at this size instead of the stream's
+         * native one. Best effort: only NVDEC has a built-in scaler and honors it for
+         * free; VideoToolbox, Media Foundation, MediaCodec, VAAPI, V4L2, and openh264
+         * ignore it and decode at the stream's native size. Read each frame's own
+         * dimensions rather than assuming this took. Both dimensions must be even.
+         */resize: MoqDimensions? = nil, 
+        /**
+         * Upper bound on buffering before skipping a stalled group, in
+         * microseconds. Same knob as
+         * [`MoqAudioDecoderOutput::max_age_us`](crate::audio::MoqAudioDecoderOutput::max_age_us).
+         * `None` keeps the moq-mux default of zero (skip aggressively).
+         */maxAgeUs: UInt64? = nil, 
+        /**
+         * CPU pixel layout every frame is delivered in. `None` delivers
+         * [`MoqVideoPixelFormat::I420`], which is what a decoder produces natively,
+         * so asking for RGBA costs a conversion per frame.
+         *
+         * Spelled as an option rather than an I420-valued field because uniffi has no
+         * enum default, and a required field would break every existing caller.
+         */format: MoqVideoPixelFormat? = nil) {
+        self.resize = resize
+        self.maxAgeUs = maxAgeUs
+        self.format = format
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension MoqVideoDecoderOutput: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqVideoDecoderOutput: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqVideoDecoderOutput {
+        return
+            try MoqVideoDecoderOutput(
+                resize: FfiConverterOptionTypeMoqDimensions.read(from: &buf), 
+                maxAgeUs: FfiConverterOptionUInt64.read(from: &buf), 
+                format: FfiConverterOptionTypeMoqVideoPixelFormat.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MoqVideoDecoderOutput, into buf: inout [UInt8]) {
+        FfiConverterOptionTypeMoqDimensions.write(value.resize, into: &buf)
+        FfiConverterOptionUInt64.write(value.maxAgeUs, into: &buf)
+        FfiConverterOptionTypeMoqVideoPixelFormat.write(value.format, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoDecoderOutput_lift(_ buf: RustBuffer) throws -> MoqVideoDecoderOutput {
+    return try FfiConverterTypeMoqVideoDecoderOutput.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoDecoderOutput_lower(_ value: MoqVideoDecoderOutput) -> RustBuffer {
+    return FfiConverterTypeMoqVideoDecoderOutput.lower(value)
 }
 
 
@@ -9767,11 +11857,11 @@ public func FfiConverterTypeMoqVideoFrame_lower(_ value: MoqVideoFrame) -> RustB
 
 
 /**
- * Caller-provided video catalog fields for [`MoqInit`].
+ * Caller-provided video catalog fields for [`MoqVideoInit`].
  *
  * Every field is optional and fills only a gap the stream leaves; a value the stream detects wins.
  * Publishing the catalog before the first keyframe needs at least the codec, which comes from the
- * [`MoqInit`] format. Audio has no equivalent: an audio format resolves entirely from its init bytes.
+ * [`MoqVideoInit`] format. Audio has no equivalent: it resolves entirely from its init bytes.
  */
 public struct MoqVideoHint: Equatable, Hashable {
     /**
@@ -9870,6 +11960,98 @@ public func FfiConverterTypeMoqVideoHint_lower(_ value: MoqVideoHint) -> RustBuf
 
 
 /**
+ * What a video publish needs: a format, optional init bytes, a label, and hints.
+ *
+ * `data` may be empty for a format that resolves in band. A [`hint`](Self::hint) pins catalog
+ * fields the stream never reveals (bitrate) or publishes the catalog before the first keyframe.
+ */
+public struct MoqVideoInit: Equatable, Hashable {
+    /**
+     * The video codec.
+     */
+    public var format: MoqVideoFormat
+    /**
+     * Codec init bytes (an avcC, an hvcC, ...). May be empty for a format that resolves in band.
+     */
+    public var data: Data
+    /**
+     * Human-readable rendition name for a track picker.
+     */
+    public var label: String?
+    /**
+     * Catalog fields the stream cannot reveal itself.
+     */
+    public var hint: MoqVideoHint?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The video codec.
+         */format: MoqVideoFormat, 
+        /**
+         * Codec init bytes (an avcC, an hvcC, ...). May be empty for a format that resolves in band.
+         */data: Data, 
+        /**
+         * Human-readable rendition name for a track picker.
+         */label: String? = nil, 
+        /**
+         * Catalog fields the stream cannot reveal itself.
+         */hint: MoqVideoHint? = nil) {
+        self.format = format
+        self.data = data
+        self.label = label
+        self.hint = hint
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension MoqVideoInit: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqVideoInit: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqVideoInit {
+        return
+            try MoqVideoInit(
+                format: FfiConverterTypeMoqVideoFormat.read(from: &buf), 
+                data: FfiConverterData.read(from: &buf), 
+                label: FfiConverterOptionString.read(from: &buf), 
+                hint: FfiConverterOptionTypeMoqVideoHint.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MoqVideoInit, into buf: inout [UInt8]) {
+        FfiConverterTypeMoqVideoFormat.write(value.format, into: &buf)
+        FfiConverterData.write(value.data, into: &buf)
+        FfiConverterOptionString.write(value.label, into: &buf)
+        FfiConverterOptionTypeMoqVideoHint.write(value.hint, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoInit_lift(_ buf: RustBuffer) throws -> MoqVideoInit {
+    return try FfiConverterTypeMoqVideoInit.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoInit_lower(_ value: MoqVideoInit) -> RustBuffer {
+    return FfiConverterTypeMoqVideoInit.lower(value)
+}
+
+
+/**
  * Catalog properties shared by every video rendition.
  *
  * Passing an absent field clears it from the next catalog snapshot rather than preserving the previous value.
@@ -9951,83 +12133,27 @@ public func FfiConverterTypeMoqVideoProperties_lower(_ value: MoqVideoProperties
 
 
 /**
- * Audio codec identifier.
- */
-
-public enum MoqAudioCodec: Equatable, Hashable {
-    
-    case opus
-
-
-
-
-
-}
-
-#if compiler(>=6)
-extension MoqAudioCodec: Sendable {}
-#endif
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeMoqAudioCodec: FfiConverterRustBuffer {
-    typealias SwiftType = MoqAudioCodec
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqAudioCodec {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-        
-        case 1: return .opus
-        
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: MoqAudioCodec, into buf: inout [UInt8]) {
-        switch value {
-        
-        
-        case .opus:
-            writeInt(&buf, Int32(1))
-        
-        }
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMoqAudioCodec_lift(_ buf: RustBuffer) throws -> MoqAudioCodec {
-    return try FfiConverterTypeMoqAudioCodec.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeMoqAudioCodec_lower(_ value: MoqAudioCodec) -> RustBuffer {
-    return FfiConverterTypeMoqAudioCodec.lower(value)
-}
-
-
-
-/**
- * Raw PCM sample format, mirroring WebCodecs `AudioData.format`.
- *
- * <https://developer.mozilla.org/en-US/docs/Web/API/AudioData/format>
+ * A single audio codec an importer can parse.
  */
 
 public enum MoqAudioFormat: Equatable, Hashable {
     
-    case u8
-    case s16
-    case s32
-    case f32
-    case u8Planar
-    case s16Planar
-    case s32Planar
-    case f32Planar
+    /**
+     * Advanced Audio Coding, configured by an AudioSpecificConfig.
+     */
+    case aac
+    /**
+     * Opus, configured by an OpusHead.
+     */
+    case opus
+    /**
+     * FLAC, configured by the `fLaC` marker plus its STREAMINFO block.
+     */
+    case flac
+    /**
+     * MPEG-1/2 Audio Layer III.
+     */
+    case mp3
 
 
 
@@ -10046,6 +12172,95 @@ public struct FfiConverterTypeMoqAudioFormat: FfiConverterRustBuffer {
     typealias SwiftType = MoqAudioFormat
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqAudioFormat {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .aac
+        
+        case 2: return .opus
+        
+        case 3: return .flac
+        
+        case 4: return .mp3
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MoqAudioFormat, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .aac:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .opus:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .flac:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .mp3:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqAudioFormat_lift(_ buf: RustBuffer) throws -> MoqAudioFormat {
+    return try FfiConverterTypeMoqAudioFormat.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqAudioFormat_lower(_ value: MoqAudioFormat) -> RustBuffer {
+    return FfiConverterTypeMoqAudioFormat.lower(value)
+}
+
+
+
+/**
+ * Raw PCM sample format, mirroring WebCodecs `AudioData.format`.
+ *
+ * <https://developer.mozilla.org/en-US/docs/Web/API/AudioData/format>
+ */
+
+public enum MoqAudioSampleFormat: Equatable, Hashable {
+    
+    case u8
+    case s16
+    case s32
+    case f32
+    case u8Planar
+    case s16Planar
+    case s32Planar
+    case f32Planar
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MoqAudioSampleFormat: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqAudioSampleFormat: FfiConverterRustBuffer {
+    typealias SwiftType = MoqAudioSampleFormat
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqAudioSampleFormat {
         let variant: Int32 = try readInt(&buf)
         switch variant {
         
@@ -10069,7 +12284,7 @@ public struct FfiConverterTypeMoqAudioFormat: FfiConverterRustBuffer {
         }
     }
 
-    public static func write(_ value: MoqAudioFormat, into buf: inout [UInt8]) {
+    public static func write(_ value: MoqAudioSampleFormat, into buf: inout [UInt8]) {
         switch value {
         
         
@@ -10112,15 +12327,101 @@ public struct FfiConverterTypeMoqAudioFormat: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeMoqAudioFormat_lift(_ buf: RustBuffer) throws -> MoqAudioFormat {
-    return try FfiConverterTypeMoqAudioFormat.lift(buf)
+public func FfiConverterTypeMoqAudioSampleFormat_lift(_ buf: RustBuffer) throws -> MoqAudioSampleFormat {
+    return try FfiConverterTypeMoqAudioSampleFormat.lift(buf)
 }
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeMoqAudioFormat_lower(_ value: MoqAudioFormat) -> RustBuffer {
-    return FfiConverterTypeMoqAudioFormat.lower(value)
+public func FfiConverterTypeMoqAudioSampleFormat_lower(_ value: MoqAudioSampleFormat) -> RustBuffer {
+    return FfiConverterTypeMoqAudioSampleFormat.lower(value)
+}
+
+
+
+/**
+ * A connection lifecycle transition reported by [`MoqSession::status`].
+ */
+
+public enum MoqConnectionStatus: Equatable, Hashable {
+    
+    /**
+     * A session connected (the first connect, or a reconnect after a drop).
+     */
+    case connected
+    /**
+     * The session dropped; a reconnect attempt follows.
+     */
+    case disconnected
+    /**
+     * The peer sent a GOAWAY; the replacement is being dialed while the old
+     * session keeps serving.
+     */
+    case migrating
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MoqConnectionStatus: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqConnectionStatus: FfiConverterRustBuffer {
+    typealias SwiftType = MoqConnectionStatus
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqConnectionStatus {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .connected
+        
+        case 2: return .disconnected
+        
+        case 3: return .migrating
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MoqConnectionStatus, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .connected:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .disconnected:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .migrating:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqConnectionStatus_lift(_ buf: RustBuffer) throws -> MoqConnectionStatus {
+    return try FfiConverterTypeMoqConnectionStatus.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqConnectionStatus_lower(_ value: MoqConnectionStatus) -> RustBuffer {
+    return FfiConverterTypeMoqConnectionStatus.lower(value)
 }
 
 
@@ -10214,6 +12515,101 @@ public func FfiConverterTypeMoqContainer_lower(_ value: MoqContainer) -> RustBuf
 
 
 /**
+ * A container that publishes its own tracks, which may be more than one.
+ */
+
+public enum MoqContainerFormat: Equatable, Hashable {
+    
+    /**
+     * Fragmented MP4 / CMAF.
+     */
+    case fmp4
+    /**
+     * Matroska / WebM.
+     */
+    case mkv
+    /**
+     * MPEG-2 transport stream.
+     */
+    case ts
+    /**
+     * Flash Video, as used by RTMP.
+     */
+    case flv
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MoqContainerFormat: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqContainerFormat: FfiConverterRustBuffer {
+    typealias SwiftType = MoqContainerFormat
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqContainerFormat {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .fmp4
+        
+        case 2: return .mkv
+        
+        case 3: return .ts
+        
+        case 4: return .flv
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MoqContainerFormat, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .fmp4:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .mkv:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .ts:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .flv:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqContainerFormat_lift(_ buf: RustBuffer) throws -> MoqContainerFormat {
+    return try FfiConverterTypeMoqContainerFormat.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqContainerFormat_lower(_ value: MoqContainerFormat) -> RustBuffer {
+    return FfiConverterTypeMoqContainerFormat.lower(value)
+}
+
+
+
+/**
  * Error returned by all UniFFI-exported functions.
  */
 public 
@@ -10221,63 +12617,100 @@ enum MoqError: Swift.Error, Equatable, Hashable, Foundation.LocalizedError {
 
     
     
-    case Protocol(message: String)
-    
-    case Media(message: String)
-    
-    case Mux(message: String)
-    
-    case JsonTrack(message: String)
-    
-    case Audio(message: String)
-    
-    case Video(message: String)
-    
-    case Url(message: String)
-    
-    case TimeOverflow(message: String)
-    
-    case LogLevel(message: String)
-    
-    case Task(message: String)
-    
-    case Json(message: String)
-    
-    case Cancelled(message: String)
-    
-    case Closed(message: String)
-    
-    case Connect(message: String)
-    
-    case Bind(message: String)
-    
-    case Reject(message: String)
-    
-    case AlreadyResponded(message: String)
-    
-    case Codec(message: String)
-    
-    case Unauthorized(message: String)
-    
-    case Forbidden(message: String)
-    
+    /**
+     * A protocol failure carrying the peer's session or stream code.
+     */
+    case Protocol(details: MoqProtocolError
+    )
+    /**
+     * The underlying QUIC/WebTransport connection failed.
+     */
+    case Transport(String
+    )
+    /**
+     * A local failure without a session or stream code.
+     */
+    case Internal(String
+    )
+    case Media(String
+    )
+    case Mux(String
+    )
+    case JsonTrack(String
+    )
+    case Audio(String
+    )
+    case Video(String
+    )
+    case Url(String
+    )
+    case TimeOverflow
+    case LogLevel(String
+    )
+    case Task(String
+    )
+    case Json(String
+    )
+    case Cancelled
+    case Closed
+    /**
+     * A configuration call lost the race with an in-flight async operation.
+     *
+     * The handle is still live: wait for the operation, then try again. A
+     * cancelled handle is [`Self::Cancelled`] instead.
+     */
+    case Busy
+    case Connect(String
+    )
+    case Bind(String
+    )
+    case Reject(String
+    )
+    case AlreadyResponded
+    case Codec(String
+    )
+    case Unauthorized
+    case Forbidden
     /**
      * The requested track or group is not available.
      */
-    case NotFound(message: String)
-    
+    case NotFound
     /**
      * The requested operation is not supported.
+     *
+     * A statement about this build or this peer, not about the call: the feature is
+     * unavailable however the caller asks for it. Caller misuse gets its own error, so
+     * that a binding can tell "MoQ can't do this here" from "you held it wrong".
      */
-    case Unsupported(message: String)
-    
+    case Unsupported
+    /**
+     * This track already committed to the other delivery order.
+     *
+     * A track is read in arrival order or in sequence order, never both, and the first
+     * group read picks which. Reaching for the other one afterwards is this error rather
+     * than [`Self::Unsupported`]: both orders work fine here, the track just isn't
+     * reading in the one you asked for. Read the track through a second consumer if you
+     * genuinely need both.
+     */
+    case AlreadyCommitted
     /**
      * A route carried an invalid hop id or too many hops.
      */
-    case InvalidRoute(message: String)
-    
-    case Log(message: String)
-    
+    case InvalidRoute(String
+    )
+    /**
+     * A path pattern was empty, had a doubled slash, or used a reserved segment form.
+     */
+    case InvalidPattern(String
+    )
+    /**
+     * A catalog rendition named another broadcast, but this consumer came from a standalone
+     * broadcast rather than an origin, so there is nothing to resolve the reference against.
+     */
+    case UnresolvableBroadcast(String
+    )
+    case Log(String
+    )
 
     
 
@@ -10308,103 +12741,77 @@ public struct FfiConverterTypeMoqError: FfiConverterRustBuffer {
 
         
         case 1: return .Protocol(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 2: return .Media(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 3: return .Mux(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 4: return .JsonTrack(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 5: return .Audio(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 6: return .Video(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 7: return .Url(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 8: return .TimeOverflow(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 9: return .LogLevel(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 10: return .Task(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 11: return .Json(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 12: return .Cancelled(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 13: return .Closed(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 14: return .Connect(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 15: return .Bind(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 16: return .Reject(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 17: return .AlreadyResponded(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 18: return .Codec(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 19: return .Unauthorized(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 20: return .Forbidden(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 21: return .NotFound(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 22: return .Unsupported(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 23: return .InvalidRoute(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
-        case 24: return .Log(
-            message: try FfiConverterString.read(from: &buf)
-        )
-        
+            details: try FfiConverterTypeMoqProtocolError.read(from: &buf)
+            )
+        case 2: return .Transport(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 3: return .Internal(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 4: return .Media(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 5: return .Mux(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 6: return .JsonTrack(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 7: return .Audio(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 8: return .Video(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 9: return .Url(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 10: return .TimeOverflow
+        case 11: return .LogLevel(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 12: return .Task(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 13: return .Json(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 14: return .Cancelled
+        case 15: return .Closed
+        case 16: return .Busy
+        case 17: return .Connect(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 18: return .Bind(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 19: return .Reject(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 20: return .AlreadyResponded
+        case 21: return .Codec(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 22: return .Unauthorized
+        case 23: return .Forbidden
+        case 24: return .NotFound
+        case 25: return .Unsupported
+        case 26: return .AlreadyCommitted
+        case 27: return .InvalidRoute(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 28: return .InvalidPattern(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 29: return .UnresolvableBroadcast(
+            try FfiConverterString.read(from: &buf)
+            )
+        case 30: return .Log(
+            try FfiConverterString.read(from: &buf)
+            )
 
-        default: throw UniffiInternalError.unexpectedEnumCase
+         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
@@ -10414,56 +12821,146 @@ public struct FfiConverterTypeMoqError: FfiConverterRustBuffer {
         
 
         
-        case .Protocol(_ /* message is ignored*/):
-            writeInt(&buf, Int32(1))
-        case .Media(_ /* message is ignored*/):
-            writeInt(&buf, Int32(2))
-        case .Mux(_ /* message is ignored*/):
-            writeInt(&buf, Int32(3))
-        case .JsonTrack(_ /* message is ignored*/):
-            writeInt(&buf, Int32(4))
-        case .Audio(_ /* message is ignored*/):
-            writeInt(&buf, Int32(5))
-        case .Video(_ /* message is ignored*/):
-            writeInt(&buf, Int32(6))
-        case .Url(_ /* message is ignored*/):
-            writeInt(&buf, Int32(7))
-        case .TimeOverflow(_ /* message is ignored*/):
-            writeInt(&buf, Int32(8))
-        case .LogLevel(_ /* message is ignored*/):
-            writeInt(&buf, Int32(9))
-        case .Task(_ /* message is ignored*/):
-            writeInt(&buf, Int32(10))
-        case .Json(_ /* message is ignored*/):
-            writeInt(&buf, Int32(11))
-        case .Cancelled(_ /* message is ignored*/):
-            writeInt(&buf, Int32(12))
-        case .Closed(_ /* message is ignored*/):
-            writeInt(&buf, Int32(13))
-        case .Connect(_ /* message is ignored*/):
-            writeInt(&buf, Int32(14))
-        case .Bind(_ /* message is ignored*/):
-            writeInt(&buf, Int32(15))
-        case .Reject(_ /* message is ignored*/):
-            writeInt(&buf, Int32(16))
-        case .AlreadyResponded(_ /* message is ignored*/):
-            writeInt(&buf, Int32(17))
-        case .Codec(_ /* message is ignored*/):
-            writeInt(&buf, Int32(18))
-        case .Unauthorized(_ /* message is ignored*/):
-            writeInt(&buf, Int32(19))
-        case .Forbidden(_ /* message is ignored*/):
-            writeInt(&buf, Int32(20))
-        case .NotFound(_ /* message is ignored*/):
-            writeInt(&buf, Int32(21))
-        case .Unsupported(_ /* message is ignored*/):
-            writeInt(&buf, Int32(22))
-        case .InvalidRoute(_ /* message is ignored*/):
-            writeInt(&buf, Int32(23))
-        case .Log(_ /* message is ignored*/):
-            writeInt(&buf, Int32(24))
-
         
+        case let .Protocol(details):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeMoqProtocolError.write(details, into: &buf)
+            
+        
+        case let .Transport(v1):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case let .Internal(v1):
+            writeInt(&buf, Int32(3))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case let .Media(v1):
+            writeInt(&buf, Int32(4))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case let .Mux(v1):
+            writeInt(&buf, Int32(5))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case let .JsonTrack(v1):
+            writeInt(&buf, Int32(6))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case let .Audio(v1):
+            writeInt(&buf, Int32(7))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case let .Video(v1):
+            writeInt(&buf, Int32(8))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case let .Url(v1):
+            writeInt(&buf, Int32(9))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case .TimeOverflow:
+            writeInt(&buf, Int32(10))
+        
+        
+        case let .LogLevel(v1):
+            writeInt(&buf, Int32(11))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case let .Task(v1):
+            writeInt(&buf, Int32(12))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case let .Json(v1):
+            writeInt(&buf, Int32(13))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case .Cancelled:
+            writeInt(&buf, Int32(14))
+        
+        
+        case .Closed:
+            writeInt(&buf, Int32(15))
+        
+        
+        case .Busy:
+            writeInt(&buf, Int32(16))
+        
+        
+        case let .Connect(v1):
+            writeInt(&buf, Int32(17))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case let .Bind(v1):
+            writeInt(&buf, Int32(18))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case let .Reject(v1):
+            writeInt(&buf, Int32(19))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case .AlreadyResponded:
+            writeInt(&buf, Int32(20))
+        
+        
+        case let .Codec(v1):
+            writeInt(&buf, Int32(21))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case .Unauthorized:
+            writeInt(&buf, Int32(22))
+        
+        
+        case .Forbidden:
+            writeInt(&buf, Int32(23))
+        
+        
+        case .NotFound:
+            writeInt(&buf, Int32(24))
+        
+        
+        case .Unsupported:
+            writeInt(&buf, Int32(25))
+        
+        
+        case .AlreadyCommitted:
+            writeInt(&buf, Int32(26))
+        
+        
+        case let .InvalidRoute(v1):
+            writeInt(&buf, Int32(27))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case let .InvalidPattern(v1):
+            writeInt(&buf, Int32(28))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case let .UnresolvableBroadcast(v1):
+            writeInt(&buf, Int32(29))
+            FfiConverterString.write(v1, into: &buf)
+            
+        
+        case let .Log(v1):
+            writeInt(&buf, Int32(30))
+            FfiConverterString.write(v1, into: &buf)
+            
         }
     }
 }
@@ -10482,6 +12979,464 @@ public func FfiConverterTypeMoqError_lift(_ buf: RustBuffer) throws -> MoqError 
 public func FfiConverterTypeMoqError_lower(_ value: MoqError) -> RustBuffer {
     return FfiConverterTypeMoqError.lower(value)
 }
+
+
+/**
+ * Which registry a protocol code belongs to. Session and stream codes are disjoint, so
+ * the same integer is a different failure in each.
+ */
+
+public enum MoqErrorScope: Equatable, Hashable {
+    
+    /**
+     * A session close code.
+     */
+    case session
+    /**
+     * A stream reset or stop code.
+     */
+    case stream
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MoqErrorScope: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqErrorScope: FfiConverterRustBuffer {
+    typealias SwiftType = MoqErrorScope
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqErrorScope {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .session
+        
+        case 2: return .stream
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MoqErrorScope, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .session:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .stream:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqErrorScope_lift(_ buf: RustBuffer) throws -> MoqErrorScope {
+    return try FfiConverterTypeMoqErrorScope.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqErrorScope_lower(_ value: MoqErrorScope) -> RustBuffer {
+    return FfiConverterTypeMoqErrorScope.lower(value)
+}
+
+
+
+/**
+ * A recognized protocol kind, or [`Self::App`] / [`Self::Unknown`] when the code is not
+ * one of the named ones. Pair with [`MoqErrorScope`]: `Cancel` is 0 on a session and 1
+ * on a stream.
+ */
+
+public enum MoqProtocolKind: Equatable, Hashable {
+    
+    /**
+     * Ending normally, with no error. Session 0, stream 1.
+     */
+    case cancel
+    /**
+     * Something went wrong that isn't worth a dedicated code. Session 1, stream 0.
+     */
+    case `internal`
+    /**
+     * The peer's token does not grant the requested path or operation.
+     */
+    case unauthorized
+    /**
+     * The peer broke a protocol rule; the session is unusable.
+     */
+    case protocolViolation
+    /**
+     * A key-value pair was malformed or repeated more than allowed.
+     */
+    case keyValueFormatting
+    /**
+     * The peer did not close within the GOAWAY drain deadline.
+     */
+    case goawayTimeout
+    /**
+     * A control message took too long.
+     */
+    case timeout
+    /**
+     * No version could be negotiated.
+     */
+    case version
+    /**
+     * The content missed its delivery deadline.
+     */
+    case deliveryTimeout
+    /**
+     * The session ended, taking this stream with it.
+     */
+    case sessionClosed
+    /**
+     * The session is going away (a GOAWAY was received).
+     */
+    case goingAway
+    /**
+     * The reader fell too far behind and content was dropped to catch up.
+     */
+    case tooFarBehind
+    /**
+     * The track's content could not be parsed.
+     */
+    case malformedTrack
+    /**
+     * The requested broadcast or track does not exist at the peer.
+     */
+    case notFound
+    /**
+     * The broadcast is neither announced nor served, so there is no route to it.
+     */
+    case unroutable
+    /**
+     * The group was superseded by a newer group and dropped.
+     */
+    case old
+    /**
+     * The group was dropped under memory pressure.
+     */
+    case evicted
+    /**
+     * A frame's payload length disagreed with its declared size.
+     */
+    case wrongSize
+    /**
+     * A frame declared a payload larger than the receiver accepts.
+     */
+    case frameTooLarge
+    /**
+     * A frame's timestamp doesn't match its track's negotiated timescale.
+     */
+    case timestampMismatch
+    /**
+     * An application-chosen code, offset into the 64+ range on the wire.
+     */
+    case app
+    /**
+     * A code this version does not recognize; [`MoqProtocolError::code`] is the value.
+     */
+    case unknown
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MoqProtocolKind: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqProtocolKind: FfiConverterRustBuffer {
+    typealias SwiftType = MoqProtocolKind
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqProtocolKind {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .cancel
+        
+        case 2: return .`internal`
+        
+        case 3: return .unauthorized
+        
+        case 4: return .protocolViolation
+        
+        case 5: return .keyValueFormatting
+        
+        case 6: return .goawayTimeout
+        
+        case 7: return .timeout
+        
+        case 8: return .version
+        
+        case 9: return .deliveryTimeout
+        
+        case 10: return .sessionClosed
+        
+        case 11: return .goingAway
+        
+        case 12: return .tooFarBehind
+        
+        case 13: return .malformedTrack
+        
+        case 14: return .notFound
+        
+        case 15: return .unroutable
+        
+        case 16: return .old
+        
+        case 17: return .evicted
+        
+        case 18: return .wrongSize
+        
+        case 19: return .frameTooLarge
+        
+        case 20: return .timestampMismatch
+        
+        case 21: return .app
+        
+        case 22: return .unknown
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MoqProtocolKind, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .cancel:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .`internal`:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .unauthorized:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .protocolViolation:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .keyValueFormatting:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .goawayTimeout:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .timeout:
+            writeInt(&buf, Int32(7))
+        
+        
+        case .version:
+            writeInt(&buf, Int32(8))
+        
+        
+        case .deliveryTimeout:
+            writeInt(&buf, Int32(9))
+        
+        
+        case .sessionClosed:
+            writeInt(&buf, Int32(10))
+        
+        
+        case .goingAway:
+            writeInt(&buf, Int32(11))
+        
+        
+        case .tooFarBehind:
+            writeInt(&buf, Int32(12))
+        
+        
+        case .malformedTrack:
+            writeInt(&buf, Int32(13))
+        
+        
+        case .notFound:
+            writeInt(&buf, Int32(14))
+        
+        
+        case .unroutable:
+            writeInt(&buf, Int32(15))
+        
+        
+        case .old:
+            writeInt(&buf, Int32(16))
+        
+        
+        case .evicted:
+            writeInt(&buf, Int32(17))
+        
+        
+        case .wrongSize:
+            writeInt(&buf, Int32(18))
+        
+        
+        case .frameTooLarge:
+            writeInt(&buf, Int32(19))
+        
+        
+        case .timestampMismatch:
+            writeInt(&buf, Int32(20))
+        
+        
+        case .app:
+            writeInt(&buf, Int32(21))
+        
+        
+        case .unknown:
+            writeInt(&buf, Int32(22))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqProtocolKind_lift(_ buf: RustBuffer) throws -> MoqProtocolKind {
+    return try FfiConverterTypeMoqProtocolKind.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqProtocolKind_lower(_ value: MoqProtocolKind) -> RustBuffer {
+    return FfiConverterTypeMoqProtocolKind.lower(value)
+}
+
+
+
+/**
+ * The network transport carrying an incoming session.
+ */
+
+public enum MoqTransport: Equatable, Hashable {
+    
+    /**
+     * QUIC, either directly or through WebTransport over HTTP/3.
+     */
+    case quic
+    /**
+     * An Iroh QUIC connection.
+     */
+    case iroh
+    /**
+     * A WebSocket connection using qmux framing.
+     */
+    case webSocket
+    /**
+     * A plaintext TCP connection using qmux framing.
+     */
+    case tcp
+    /**
+     * A Unix domain socket using qmux framing.
+     */
+    case unix
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MoqTransport: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqTransport: FfiConverterRustBuffer {
+    typealias SwiftType = MoqTransport
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqTransport {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .quic
+        
+        case 2: return .iroh
+        
+        case 3: return .webSocket
+        
+        case 4: return .tcp
+        
+        case 5: return .unix
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MoqTransport, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .quic:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .iroh:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .webSocket:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .tcp:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .unix:
+            writeInt(&buf, Int32(5))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqTransport_lift(_ buf: RustBuffer) throws -> MoqTransport {
+    return try FfiConverterTypeMoqTransport.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqTransport_lower(_ value: MoqTransport) -> RustBuffer {
+    return FfiConverterTypeMoqTransport.lower(value)
+}
+
 
 
 /**
@@ -10669,7 +13624,137 @@ public func FfiConverterTypeMoqVideoEncoderKind_lower(_ value: MoqVideoEncoderKi
 
 
 /**
- * Pixel layout of the raw frames passed to [`MoqVideoProducer::write`].
+ * A single video codec an importer can parse.
+ *
+ * H.264 and H.265 appear twice each because the framing differs, not just the codec: `Avc1`/`Hvc1`
+ * are length-prefixed with an out-of-band config record, while `Avc3`/`Hev1` are Annex-B with the
+ * parameter sets inline.
+ */
+
+public enum MoqVideoFormat: Equatable, Hashable {
+    
+    /**
+     * H.264, length-prefixed NALUs with an out-of-band avcC.
+     */
+    case avc1
+    /**
+     * H.264, Annex-B with inline SPS/PPS.
+     */
+    case avc3
+    /**
+     * H.265, length-prefixed NALUs with an out-of-band hvcC.
+     */
+    case hvc1
+    /**
+     * H.265, Annex-B with inline parameter sets.
+     */
+    case hev1
+    /**
+     * AV1.
+     */
+    case av01
+    /**
+     * VP8.
+     */
+    case vp8
+    /**
+     * VP9.
+     */
+    case vp9
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension MoqVideoFormat: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqVideoFormat: FfiConverterRustBuffer {
+    typealias SwiftType = MoqVideoFormat
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqVideoFormat {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .avc1
+        
+        case 2: return .avc3
+        
+        case 3: return .hvc1
+        
+        case 4: return .hev1
+        
+        case 5: return .av01
+        
+        case 6: return .vp8
+        
+        case 7: return .vp9
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: MoqVideoFormat, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .avc1:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .avc3:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .hvc1:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .hev1:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .av01:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .vp8:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .vp9:
+            writeInt(&buf, Int32(7))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoFormat_lift(_ buf: RustBuffer) throws -> MoqVideoFormat {
+    return try FfiConverterTypeMoqVideoFormat.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqVideoFormat_lower(_ value: MoqVideoFormat) -> RustBuffer {
+    return FfiConverterTypeMoqVideoFormat.lower(value)
+}
+
+
+
+/**
+ * A CPU pixel layout: what [`MoqVideoProducer::write`] is fed, and what
+ * [`MoqBroadcastConsumer::decode_video`] hands back.
  */
 
 public enum MoqVideoPixelFormat: Equatable, Hashable {
@@ -10890,8 +13975,8 @@ fileprivate struct FfiConverterOptionData: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeMoqAnnouncement: FfiConverterRustBuffer {
-    typealias SwiftType = MoqAnnouncement?
+fileprivate struct FfiConverterOptionTypeMoqAnnounceUpdate: FfiConverterRustBuffer {
+    typealias SwiftType = MoqAnnounceUpdate?
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
         guard let value = value else {
@@ -10899,13 +13984,37 @@ fileprivate struct FfiConverterOptionTypeMoqAnnouncement: FfiConverterRustBuffer
             return
         }
         writeInt(&buf, Int8(1))
-        FfiConverterTypeMoqAnnouncement.write(value, into: &buf)
+        FfiConverterTypeMoqAnnounceUpdate.write(value, into: &buf)
     }
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
-        case 1: return try FfiConverterTypeMoqAnnouncement.read(from: &buf)
+        case 1: return try FfiConverterTypeMoqAnnounceUpdate.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeMoqBandwidth: FfiConverterRustBuffer {
+    typealias SwiftType = MoqBandwidth?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeMoqBandwidth.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeMoqBandwidth.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -10978,6 +14087,30 @@ fileprivate struct FfiConverterOptionTypeMoqRequest: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeMoqRequest.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeMoqReservation: FfiConverterRustBuffer {
+    typealias SwiftType = MoqReservation?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeMoqReservation.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeMoqReservation.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -11154,30 +14287,6 @@ fileprivate struct FfiConverterOptionTypeMoqMediaFrame: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeMoqRoute: FfiConverterRustBuffer {
-    typealias SwiftType = MoqRoute?
-
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
-        guard let value = value else {
-            writeInt(&buf, Int8(0))
-            return
-        }
-        writeInt(&buf, Int8(1))
-        FfiConverterTypeMoqRoute.write(value, into: &buf)
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        switch try readInt(&buf) as Int8 {
-        case 0: return nil
-        case 1: return try FfiConverterTypeMoqRoute.read(from: &buf)
-        default: throw UniffiInternalError.unexpectedOptionalTag
-        }
-    }
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
 fileprivate struct FfiConverterOptionTypeMoqSubscription: FfiConverterRustBuffer {
     typealias SwiftType = MoqSubscription?
 
@@ -11226,6 +14335,30 @@ fileprivate struct FfiConverterOptionTypeMoqTrackInfo: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeMoqVideoDecodedFrame: FfiConverterRustBuffer {
+    typealias SwiftType = MoqVideoDecodedFrame?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeMoqVideoDecodedFrame.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeMoqVideoDecodedFrame.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeMoqVideoHint: FfiConverterRustBuffer {
     typealias SwiftType = MoqVideoHint?
 
@@ -11242,6 +14375,54 @@ fileprivate struct FfiConverterOptionTypeMoqVideoHint: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeMoqVideoHint.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeMoqVideoPixelFormat: FfiConverterRustBuffer {
+    typealias SwiftType = MoqVideoPixelFormat?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeMoqVideoPixelFormat.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeMoqVideoPixelFormat.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionSequenceString: FfiConverterRustBuffer {
+    typealias SwiftType = [String]?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterSequenceString.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterSequenceString.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -11453,16 +14634,19 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_func_moq_log_level() != 24625) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqaudioconsumer_cancel() != 31743) {
+    if (uniffi_moq_ffi_checksum_method_moqaudioconsumer_cancel() != 62285) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqaudioconsumer_next() != 247) {
+    if (uniffi_moq_ffi_checksum_method_moqaudioconsumer_next() != 5941) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqaudioproducer_finish() != 6287) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqaudioproducer_name() != 63111) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqaudioproducer_reservation() != 43848) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqaudioproducer_reset_epoch() != 57448) {
@@ -11477,28 +14661,34 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqaudioproducer_write() != 22094) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_audio() != 51433) {
+    if (uniffi_moq_ffi_checksum_method_moqbandwidth_reserve() != 60458) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqreservation_grant() != 59401) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqreservation_update() != 9626) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_decode_audio() != 18081) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_fetch_group() != 18633) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_fetch_media_group() != 11148) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_fetch_media_group() != 40237) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_route() != 22082) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_route_updates() != 53247) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_resolve() != 55875) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_catalog() != 34722) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_media() != 19493) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_media() != 29917) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_track() != 37381) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_track() != 2348) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_json_snapshot() != 46473) {
@@ -11507,13 +14697,16 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_subscribe_json_stream() != 3028) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqcatalogconsumer_cancel() != 37402) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_decode_video() != 28752) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqcatalogconsumer_cancel() != 65421) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqcatalogconsumer_next() != 33133) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqgroupconsumer_cancel() != 26278) {
+    if (uniffi_moq_ffi_checksum_method_moqgroupconsumer_cancel() != 52548) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqgroupconsumer_read_frame() != 26363) {
@@ -11522,13 +14715,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqgroupconsumer_sequence() != 46527) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaconsumer_cancel() != 35497) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaconsumer_cancel() != 14280) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqmediaconsumer_next() != 42389) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediagroupconsumer_cancel() != 51108) {
+    if (uniffi_moq_ffi_checksum_method_moqmediagroupconsumer_cancel() != 47486) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqmediagroupconsumer_next() != 22636) {
@@ -11537,34 +14730,28 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqmediagroupconsumer_sequence() != 22332) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqroutewatch_cancel() != 58981) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_moq_ffi_checksum_method_moqroutewatch_next() != 59843) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_cancel() != 61290) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_cancel() != 65022) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_info() != 46426) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_next_group() != 6710) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_next_group() != 5449) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_read_frame() != 58741) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_read_frame() != 42799) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_recv_datagram() != 16161) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_recv_datagram() != 29049) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_recv_group() != 831) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_recv_group() != 60887) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_update() != 24851) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotconsumer_cancel() != 44009) {
+    if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotconsumer_cancel() != 45114) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotconsumer_next() != 64727) {
@@ -11576,7 +14763,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotproducer_update() != 18037) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqjsonstreamconsumer_cancel() != 13497) {
+    if (uniffi_moq_ffi_checksum_method_moqjsonstreamconsumer_cancel() != 29308) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqjsonstreamconsumer_next() != 7523) {
@@ -11588,25 +14775,28 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqjsonstreamproducer_finish() != 51459) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqannounced_cancel() != 54065) {
+    if (uniffi_moq_ffi_checksum_method_moqannounceconsumer_cancel() != 10799) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqannounced_next() != 25345) {
+    if (uniffi_moq_ffi_checksum_method_moqannounceconsumer_next() != 4892) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqannouncedbroadcast_available() != 13508) {
+    if (uniffi_moq_ffi_checksum_method_moqannounceupdate_active() != 49521) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqannouncedbroadcast_cancel() != 59914) {
+    if (uniffi_moq_ffi_checksum_method_moqannounceupdate_captures() != 53535) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqannouncement_broadcast() != 51237) {
+    if (uniffi_moq_ffi_checksum_method_moqannounceupdate_prefix() != 8170) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqannouncement_path() != 59733) {
+    if (uniffi_moq_ffi_checksum_method_moqannounceupdate_route() != 8074) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastrequest_abort() != 42319) {
+    if (uniffi_moq_ffi_checksum_method_moqannouncedbroadcast_available() != 42497) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqannouncedbroadcast_cancel() != 63175) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastrequest_accept() != 36946) {
@@ -11615,43 +14805,52 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqbroadcastrequest_path() != 6534) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_announced() != 48353) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastrequest_reject() != 9727) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_announced_broadcast() != 18225) {
+    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_announced() != 16595) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_request_broadcast() != 29590) {
+    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_announced_broadcast() != 16445) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqorigindynamic_cancel() != 60877) {
+    if (uniffi_moq_ffi_checksum_method_moqoriginconsumer_request_broadcast() != 18586) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqorigindynamic_requested_broadcast() != 26471) {
+    if (uniffi_moq_ffi_checksum_method_moqorigindynamic_cancel() != 47453) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqorigindynamic_requested_broadcast() != 53391) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqorigindynamic_update() != 27700) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqoriginproducer_consume() != 52357) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqoriginproducer_create_broadcast() != 48871) {
+    if (uniffi_moq_ffi_checksum_method_moqoriginproducer_create_broadcast() != 47748) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqoriginproducer_dynamic() != 40207) {
+    if (uniffi_moq_ffi_checksum_method_moqoriginproducer_dynamic() != 56233) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastdynamic_cancel() != 61176) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastdynamic_cancel() != 25875) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastdynamic_requested_track() != 12071) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastdynamic_requested_track() != 24118) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_audio() != 20708) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_encode_audio() != 25334) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_json_snapshot() != 51036) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_json_stream() != 47317) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_announce() != 14026) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_consume() != 27634) {
@@ -11663,34 +14862,61 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_finish() != 7183) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_media() != 43231) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_audio() != 47444) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_media_on_track() != 54415) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_audio_on_track() != 33897) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_media_stream() != 60403) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_container() != 24539) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_track() != 41634) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_container_stream() != 11217) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_track() != 44452) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_video() != 16383) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_video_on_track() != 60666) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_video_stream() != 28640) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_remove_catalog_section() != 8608) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_announce() != 5421) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_catalog_section() != 25735) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_route() != 48187) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_catalog_section() != 28423) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_video_properties() != 9178) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_video() != 10703) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_unannounce() != 39609) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_encode_video() != 49251) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqcontainerproducer_cut() != 17534) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqcontainerproducer_finish() != 13064) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqcontainerproducer_seek() != 61349) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqcontainerproducer_write() != 13274) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqcontainerstreamproducer_finish() != 29733) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqcontainerstreamproducer_write() != 18446) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqgroupproducer_abort() != 59787) {
@@ -11699,7 +14925,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqgroupproducer_consume() != 53274) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqgroupproducer_finish() != 35444) {
+    if (uniffi_moq_ffi_checksum_method_moqgroupproducer_finish() != 61241) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqgroupproducer_sequence() != 21067) {
@@ -11720,28 +14946,34 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqgrouprequest_sequence() != 29523) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_finish() != 8039) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_cut() != 58543) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_name() != 55742) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_finish() != 38480) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_unused() != 27885) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_name() != 7199) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_used() != 19042) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_seek() != 43157) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_write_frame() != 60790) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_unused() != 35935) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediastreamproducer_finish() != 36771) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_used() != 53654) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediastreamproducer_write() != 7686) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_write_frame() != 7321) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackdynamic_cancel() != 21897) {
+    if (uniffi_moq_ffi_checksum_method_moqmediastreamproducer_finish() != 2732) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqmediastreamproducer_write() != 31109) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqtrackdynamic_cancel() != 57913) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqtrackdynamic_requested_group() != 63983) {
@@ -11756,7 +14988,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqtrackproducer_append_group() != 45225) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_consume() != 48554) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_consume() != 30970) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqtrackproducer_create_group() != 38978) {
@@ -11765,7 +14997,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqtrackproducer_dynamic() != 58584) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_finish() != 16707) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_finish() != 3278) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqtrackproducer_finish_at() != 24581) {
@@ -11786,7 +15018,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqtrackrequest_abort() != 62713) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackrequest_accept() != 16277) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackrequest_accept() != 47766) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqtrackrequest_dynamic() != 24801) {
@@ -11798,7 +15030,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqrequest_accept() != 46183) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqrequest_cancel() != 46242) {
+    if (uniffi_moq_ffi_checksum_method_moqrequest_cancel() != 25859) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqrequest_path() != 48052) {
@@ -11807,25 +15039,25 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqrequest_query() != 23842) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqrequest_reject() != 57471) {
+    if (uniffi_moq_ffi_checksum_method_moqrequest_reject() != 2829) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqrequest_set_consume() != 10143) {
+    if (uniffi_moq_ffi_checksum_method_moqrequest_set_consume() != 45399) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqrequest_set_publish() != 48930) {
+    if (uniffi_moq_ffi_checksum_method_moqrequest_set_publish() != 10746) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqrequest_transport() != 5942) {
+    if (uniffi_moq_ffi_checksum_method_moqrequest_transport() != 57171) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqrequest_url() != 34138) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_accept() != 62476) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_accept() != 44310) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_cancel() != 379) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_cancel() != 56970) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqserver_cert_fingerprints() != 32082) {
@@ -11834,76 +15066,100 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqserver_listen() != 9040) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_set_bind() != 60575) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_set_bind() != 55505) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_set_consume() != 29005) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_set_consume() != 13635) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_set_publish() != 54637) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_set_publish() != 48695) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_set_tls_cert() != 6344) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_set_tls_cert() != 33276) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_set_tls_generate() != 51810) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_set_tls_generate() != 148) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqserver_set_tls_key() != 61191) {
+    if (uniffi_moq_ffi_checksum_method_moqserver_set_tls_key() != 56395) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_cancel() != 48149) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_cancel() != 29949) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_connect() != 27725) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_connect() != 42368) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_bind() != 7248) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_backoff() != 63523) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_consume() != 64342) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_bind() != 56346) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_publish() != 29680) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_consume() != 4978) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_cert() != 24223) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_publish() != 64932) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_disable_verify() != 58510) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_quic_max_streams() != 17062) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_fingerprints() != 48211) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_reconnect() != 53736) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_key() != 499) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_cert() != 12773) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_roots() != 46542) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_fingerprints() != 50038) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_system_roots() != 24617) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_key() != 19390) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqsession_cancel() != 29713) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_roots() != 5399) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqsession_closed() != 53575) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_system_roots() != 10239) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqsession_consumer() != 62364) {
+    if (uniffi_moq_ffi_checksum_method_moqclient_set_tls_verify() != 64525) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqsession_publisher() != 55435) {
+    if (uniffi_moq_ffi_checksum_method_moqsession_bandwidth() != 8006) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqsession_cancel() != 39476) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqsession_closed() != 7901) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqsession_consume() != 45358) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqsession_epoch() != 32695) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqsession_publish() != 37960) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqsession_shutdown() != 820) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqsession_stats() != 15450) {
+    if (uniffi_moq_ffi_checksum_method_moqsession_stats() != 44305) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_cut() != 27669) {
+    if (uniffi_moq_ffi_checksum_method_moqsession_status() != 49725) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqvideoconsumer_cancel() != 27071) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqvideoconsumer_next() != 34191) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_cut() != 18974) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqvideoproducer_finish() != 59081) {
@@ -11912,7 +15168,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqvideoproducer_name() != 43551) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_set_bitrate() != 57197) {
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_reservation() != 64430) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_set_bitrate() != 28203) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqvideoproducer_unused() != 30941) {
@@ -11924,7 +15183,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqvideoproducer_write() != 6141) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_constructor_moqoriginproducer_new() != 54724) {
+    if (uniffi_moq_ffi_checksum_constructor_moqaudiocodec_opus() != 64803) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_constructor_moqoriginproducer_new() != 48126) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_constructor_moqbroadcastproducer_new() != 37572) {

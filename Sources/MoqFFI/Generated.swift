@@ -1430,6 +1430,11 @@ public func FfiConverterTypeMoqAudioConsumer_lower(_ value: MoqAudioConsumer) ->
  */
 public protocol MoqAudioProducerProtocol: AnyObject, Sendable {
     
+    /**
+     * A watch-only handle to whether this audio track has subscribers.
+     */
+    func demand() throws  -> MoqTrackDemand
+    
     func finish() throws 
     
     /**
@@ -1454,11 +1459,15 @@ public protocol MoqAudioProducerProtocol: AnyObject, Sendable {
     
     /**
      * Wait until this audio track has no active consumers.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
     func unused() async throws 
     
     /**
      * Wait until this audio track has at least one active consumer.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
     func used() async throws 
     
@@ -1526,6 +1535,18 @@ open class MoqAudioProducer: MoqAudioProducerProtocol, @unchecked Sendable {
     
 
     
+    /**
+     * A watch-only handle to whether this audio track has subscribers.
+     */
+open func demand()throws  -> MoqTrackDemand  {
+    return try  FfiConverterTypeMoqTrackDemand_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqaudioproducer_demand(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqaudioproducer_finish(
@@ -1576,6 +1597,8 @@ open func resetEpoch()throws   {try rustCallWithError(FfiConverterTypeMoqError_l
     
     /**
      * Wait until this audio track has no active consumers.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
 open func unused()async throws   {
     return
@@ -1595,6 +1618,8 @@ open func unused()async throws   {
     
     /**
      * Wait until this audio track has at least one active consumer.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
 open func used()async throws   {
     return
@@ -4874,6 +4899,11 @@ public func FfiConverterTypeMoqJsonSnapshotConsumer_lower(_ value: MoqJsonSnapsh
 public protocol MoqJsonSnapshotProducerProtocol: AnyObject, Sendable {
     
     /**
+     * A watch-only handle to whether this track has subscribers.
+     */
+    func demand() throws  -> MoqTrackDemand
+    
+    /**
      * Finish the track, closing any open group.
      */
     func finish() throws 
@@ -4940,6 +4970,18 @@ open class MoqJsonSnapshotProducer: MoqJsonSnapshotProducerProtocol, @unchecked 
 
     
 
+    
+    /**
+     * A watch-only handle to whether this track has subscribers.
+     */
+open func demand()throws  -> MoqTrackDemand  {
+    return try  FfiConverterTypeMoqTrackDemand_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqjsonsnapshotproducer_demand(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
     
     /**
      * Finish the track, closing any open group.
@@ -5182,6 +5224,11 @@ public protocol MoqJsonStreamProducerProtocol: AnyObject, Sendable {
     func append(value: String) throws 
     
     /**
+     * A watch-only handle to whether this track has subscribers.
+     */
+    func demand() throws  -> MoqTrackDemand
+    
+    /**
      * Finish the track, closing the group.
      */
     func finish() throws 
@@ -5253,6 +5300,18 @@ open func append(value: String)throws   {try rustCallWithError(FfiConverterTypeM
         FfiConverterString.lower(value),uniffiCallStatus
     )
 }
+}
+    
+    /**
+     * A watch-only handle to whether this track has subscribers.
+     */
+open func demand()throws  -> MoqTrackDemand  {
+    return try  FfiConverterTypeMoqTrackDemand_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqjsonstreamproducer_demand(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
 }
     
     /**
@@ -5654,6 +5713,11 @@ public protocol MoqMediaProducerProtocol: AnyObject, Sendable {
     func cut() throws 
     
     /**
+     * A watch-only handle to whether this track has subscribers.
+     */
+    func demand() throws  -> MoqTrackDemand
+    
+    /**
      * Finish this track and finalize encoding.
      */
     func finish() throws 
@@ -5673,11 +5737,15 @@ public protocol MoqMediaProducerProtocol: AnyObject, Sendable {
     
     /**
      * Wait until this track has no active consumers.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
     func unused() async throws 
     
     /**
      * Wait until this track has at least one active consumer.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
     func used() async throws 
     
@@ -5760,6 +5828,18 @@ open func cut()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
 }
     
     /**
+     * A watch-only handle to whether this track has subscribers.
+     */
+open func demand()throws  -> MoqTrackDemand  {
+    return try  FfiConverterTypeMoqTrackDemand_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqmediaproducer_demand(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
      * Finish this track and finalize encoding.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
@@ -5799,6 +5879,8 @@ open func seek(sequence: UInt64)throws   {try rustCallWithError(FfiConverterType
     
     /**
      * Wait until this track has no active consumers.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
 open func unused()async throws   {
     return
@@ -5818,6 +5900,8 @@ open func unused()async throws   {
     
     /**
      * Wait until this track has at least one active consumer.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
 open func used()async throws   {
     return
@@ -8159,6 +8243,208 @@ public func FfiConverterTypeMoqTrackConsumer_lower(_ value: MoqTrackConsumer) ->
 
 
 /**
+ * A watch-only handle to a published track's subscriber demand.
+ *
+ * Weak: holding it neither keeps the track open nor locks the producer it came from, so a wait
+ * can park here while the producer keeps publishing. Waits fail with `Closed` once the track is
+ * released.
+ */
+public protocol MoqTrackDemandProtocol: AnyObject, Sendable {
+    
+    /**
+     * Whether the track has at least one active consumer right now, without waiting.
+     */
+    func isUsed()  -> Bool
+    
+    /**
+     * The name of the track this watches.
+     */
+    func name()  -> String
+    
+    /**
+     * Wait until the track has no active consumers.
+     */
+    func unused() async throws 
+    
+    /**
+     * Wait until the track has at least one active consumer.
+     */
+    func used() async throws 
+    
+}
+/**
+ * A watch-only handle to a published track's subscriber demand.
+ *
+ * Weak: holding it neither keeps the track open nor locks the producer it came from, so a wait
+ * can park here while the producer keeps publishing. Waits fail with `Closed` once the track is
+ * released.
+ */
+open class MoqTrackDemand: MoqTrackDemandProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_moq_ffi_fn_clone_moqtrackdemand(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_moq_ffi_fn_free_moqtrackdemand(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Whether the track has at least one active consumer right now, without waiting.
+     */
+open func isUsed() -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqtrackdemand_is_used(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The name of the track this watches.
+     */
+open func name() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqtrackdemand_name(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Wait until the track has no active consumers.
+     */
+open func unused()async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_moq_ffi_fn_method_moqtrackdemand_unused(
+                        self.uniffiCloneHandle()
+                )
+            },
+            pollFunc: ffi_moq_ffi_rust_future_poll_void,
+            completeFunc: ffi_moq_ffi_rust_future_complete_void,
+            freeFunc: ffi_moq_ffi_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMoqError_lift
+        )
+}
+    
+    /**
+     * Wait until the track has at least one active consumer.
+     */
+open func used()async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_moq_ffi_fn_method_moqtrackdemand_used(
+                        self.uniffiCloneHandle()
+                )
+            },
+            pollFunc: ffi_moq_ffi_rust_future_poll_void,
+            completeFunc: ffi_moq_ffi_rust_future_complete_void,
+            freeFunc: ffi_moq_ffi_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMoqError_lift
+        )
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqTrackDemand: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = MoqTrackDemand
+
+    public static func lift(_ handle: UInt64) throws -> MoqTrackDemand {
+        return MoqTrackDemand(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: MoqTrackDemand) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqTrackDemand {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: MoqTrackDemand, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqTrackDemand_lift(_ handle: UInt64) throws -> MoqTrackDemand {
+    return try FfiConverterTypeMoqTrackDemand.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqTrackDemand_lower(_ value: MoqTrackDemand) -> UInt64 {
+    return FfiConverterTypeMoqTrackDemand.lower(value)
+}
+
+
+
+
+
+
+/**
  * Serves on-demand fetches of uncached groups for one track.
  */
 public protocol MoqTrackDynamicProtocol: AnyObject, Sendable {
@@ -8359,6 +8645,11 @@ public protocol MoqTrackProducerProtocol: AnyObject, Sendable {
     func createGroup(sequence: UInt64) throws  -> MoqGroupProducer
     
     /**
+     * A watch-only handle to whether this track has subscribers.
+     */
+    func demand() throws  -> MoqTrackDemand
+    
+    /**
      * Create a handler for uncached group fetches on this track.
      *
      * Hold the returned object for as long as cache misses should wait to be
@@ -8390,11 +8681,15 @@ public protocol MoqTrackProducerProtocol: AnyObject, Sendable {
     
     /**
      * Wait until this track has no active consumers.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
     func unused() async throws 
     
     /**
      * Wait until this track has at least one active consumer.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
     func used() async throws 
     
@@ -8533,6 +8828,18 @@ open func createGroup(sequence: UInt64)throws  -> MoqGroupProducer  {
 }
     
     /**
+     * A watch-only handle to whether this track has subscribers.
+     */
+open func demand()throws  -> MoqTrackDemand  {
+    return try  FfiConverterTypeMoqTrackDemand_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqtrackproducer_demand(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
      * Create a handler for uncached group fetches on this track.
      *
      * Hold the returned object for as long as cache misses should wait to be
@@ -8591,6 +8898,8 @@ open func name()throws  -> String  {
     
     /**
      * Wait until this track has no active consumers.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
 open func unused()async throws   {
     return
@@ -8610,6 +8919,8 @@ open func unused()async throws   {
     
     /**
      * Wait until this track has at least one active consumer.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
 open func used()async throws   {
     return
@@ -9081,6 +9392,11 @@ public protocol MoqVideoProducerProtocol: AnyObject, Sendable {
     func cut() throws 
     
     /**
+     * A watch-only handle to whether this video track has subscribers.
+     */
+    func demand() throws  -> MoqTrackDemand
+    
+    /**
      * Flush any frames the codec is still holding and finalize the track.
      */
     func finish() throws 
@@ -9119,11 +9435,15 @@ public protocol MoqVideoProducerProtocol: AnyObject, Sendable {
     
     /**
      * Wait until this video track has no active consumers.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
     func unused() async throws 
     
     /**
      * Wait until this video track has at least one active consumer.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
     func used() async throws 
     
@@ -9223,6 +9543,18 @@ open func cut()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
 }
     
     /**
+     * A watch-only handle to whether this video track has subscribers.
+     */
+open func demand()throws  -> MoqTrackDemand  {
+    return try  FfiConverterTypeMoqTrackDemand_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqvideoproducer_demand(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
      * Flush any frames the codec is still holding and finalize the track.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
@@ -9288,6 +9620,8 @@ open func setBitrate(bitrate: UInt64)throws   {try rustCallWithError(FfiConverte
     
     /**
      * Wait until this video track has no active consumers.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
 open func unused()async throws   {
     return
@@ -9307,6 +9641,8 @@ open func unused()async throws   {
     
     /**
      * Wait until this video track has at least one active consumer.
+     *
+     * Prefer [`demand`](Self::demand), a handle that can wait without borrowing this producer.
      */
 open func used()async throws   {
     return
@@ -14640,6 +14976,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqaudioconsumer_next() != 5941) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_moq_ffi_checksum_method_moqaudioproducer_demand() != 42822) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_moq_ffi_checksum_method_moqaudioproducer_finish() != 6287) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -14652,10 +14991,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqaudioproducer_reset_epoch() != 57448) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqaudioproducer_unused() != 26060) {
+    if (uniffi_moq_ffi_checksum_method_moqaudioproducer_unused() != 19225) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqaudioproducer_used() != 36634) {
+    if (uniffi_moq_ffi_checksum_method_moqaudioproducer_used() != 63466) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqaudioproducer_write() != 22094) {
@@ -14751,10 +15090,25 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_update() != 24851) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_moq_ffi_checksum_method_moqtrackdemand_is_used() != 62559) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqtrackdemand_name() != 14603) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqtrackdemand_unused() != 32953) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqtrackdemand_used() != 18944) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotconsumer_cancel() != 45114) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotconsumer_next() != 64727) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotproducer_demand() != 45789) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqjsonsnapshotproducer_finish() != 42593) {
@@ -14770,6 +15124,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqjsonstreamproducer_append() != 12571) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqjsonstreamproducer_demand() != 52854) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqjsonstreamproducer_finish() != 51459) {
@@ -14949,6 +15306,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqmediaproducer_cut() != 58543) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_demand() != 44491) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_moq_ffi_checksum_method_moqmediaproducer_finish() != 38480) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -14958,10 +15318,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqmediaproducer_seek() != 43157) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_unused() != 35935) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_unused() != 38139) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_used() != 53654) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_used() != 55925) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqmediaproducer_write_frame() != 7321) {
@@ -14994,6 +15354,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqtrackproducer_create_group() != 38978) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_demand() != 32311) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_moq_ffi_checksum_method_moqtrackproducer_dynamic() != 58584) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -15006,10 +15369,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqtrackproducer_name() != 14598) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_unused() != 9025) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_unused() != 29609) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_used() != 36898) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackproducer_used() != 19906) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqtrackproducer_write_frame() != 18663) {
@@ -15162,6 +15525,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqvideoproducer_cut() != 18974) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_demand() != 283) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_moq_ffi_checksum_method_moqvideoproducer_finish() != 59081) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -15174,10 +15540,10 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqvideoproducer_set_bitrate() != 28203) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_unused() != 30941) {
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_unused() != 49939) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_used() != 48040) {
+    if (uniffi_moq_ffi_checksum_method_moqvideoproducer_used() != 24872) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqvideoproducer_write() != 6141) {

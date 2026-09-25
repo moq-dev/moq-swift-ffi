@@ -2503,8 +2503,9 @@ public protocol MoqBroadcastProducerProtocol: AnyObject, Sendable {
     /**
      * Publish one audio codec as a new track.
      *
-     * The track is named after the format (`0.opus`), so the catalog is how a subscriber finds it.
-     * [`MoqAudioInit::data`] is required: audio resolves its rendition entirely from those bytes.
+     * The track is [`MoqAudioInit::track`], or else named after the format (`0.opus`), so the
+     * catalog is how a subscriber finds it. [`MoqAudioInit::data`] is required: audio resolves its
+     * rendition entirely from those bytes.
      */
     func publishAudio(`init`: MoqAudioInit) throws  -> MoqMediaProducer
     
@@ -2791,8 +2792,9 @@ open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift)
     /**
      * Publish one audio codec as a new track.
      *
-     * The track is named after the format (`0.opus`), so the catalog is how a subscriber finds it.
-     * [`MoqAudioInit::data`] is required: audio resolves its rendition entirely from those bytes.
+     * The track is [`MoqAudioInit::track`], or else named after the format (`0.opus`), so the
+     * catalog is how a subscriber finds it. [`MoqAudioInit::data`] is required: audio resolves its
+     * rendition entirely from those bytes.
      */
 open func publishAudio(`init`: MoqAudioInit)throws  -> MoqMediaProducer  {
     return try  FfiConverterTypeMoqMediaProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
@@ -5773,6 +5775,14 @@ public protocol MoqMediaProducerProtocol: AnyObject, Sendable {
     func finish() throws 
     
     /**
+     * Record a locally encoded frame's handoff for catalog jitter measurement.
+     *
+     * `timestamp_us` is on the broadcast media clock. Call this after `write_frame` only for
+     * encoder output; imported files, pipes, and network media stay clock-free.
+     */
+    func flush(timestampUs: UInt64) throws 
+    
+    /**
      * The name of the track this publishes.
      */
     func name() throws  -> String
@@ -5896,6 +5906,21 @@ open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift)
         uniffiCallStatus in
     uniffi_moq_ffi_fn_method_moqmediaproducer_finish(
             self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Record a locally encoded frame's handoff for catalog jitter measurement.
+     *
+     * `timestamp_us` is on the broadcast media clock. Call this after `write_frame` only for
+     * encoder output; imported files, pipes, and network media stay clock-free.
+     */
+open func flush(timestampUs: UInt64)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqmediaproducer_flush(
+            self.uniffiCloneHandle(),
+        FfiConverterUInt64.lower(timestampUs),uniffiCallStatus
     )
 }
 }
@@ -10278,6 +10303,11 @@ public struct MoqAudioInit: Equatable, Hashable {
      * Human-readable rendition name for a track picker.
      */
     public var label: String?
+    /**
+     * Track name. `None` derives a unique name from the format. Refused on a requested track,
+     * which already carries its name.
+     */
+    public var track: String?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -10290,10 +10320,15 @@ public struct MoqAudioInit: Equatable, Hashable {
          */data: Data, 
         /**
          * Human-readable rendition name for a track picker.
-         */label: String? = nil) {
+         */label: String? = nil, 
+        /**
+         * Track name. `None` derives a unique name from the format. Refused on a requested track,
+         * which already carries its name.
+         */track: String? = nil) {
         self.format = format
         self.data = data
         self.label = label
+        self.track = track
     }
 
     
@@ -10314,7 +10349,8 @@ public struct FfiConverterTypeMoqAudioInit: FfiConverterRustBuffer {
             try MoqAudioInit(
                 format: FfiConverterTypeMoqAudioFormat.read(from: &buf), 
                 data: FfiConverterData.read(from: &buf), 
-                label: FfiConverterOptionString.read(from: &buf)
+                label: FfiConverterOptionString.read(from: &buf), 
+                track: FfiConverterOptionString.read(from: &buf)
         )
     }
 
@@ -10322,6 +10358,7 @@ public struct FfiConverterTypeMoqAudioInit: FfiConverterRustBuffer {
         FfiConverterTypeMoqAudioFormat.write(value.format, into: &buf)
         FfiConverterData.write(value.data, into: &buf)
         FfiConverterOptionString.write(value.label, into: &buf)
+        FfiConverterOptionString.write(value.track, into: &buf)
     }
 }
 
@@ -12379,6 +12416,11 @@ public struct MoqVideoInit: Equatable, Hashable {
      * Catalog fields the stream cannot reveal itself.
      */
     public var hint: MoqVideoHint?
+    /**
+     * Track name. `None` derives a unique name from the format. Refused on a requested track,
+     * which already carries its name.
+     */
+    public var track: String?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -12394,11 +12436,16 @@ public struct MoqVideoInit: Equatable, Hashable {
          */label: String? = nil, 
         /**
          * Catalog fields the stream cannot reveal itself.
-         */hint: MoqVideoHint? = nil) {
+         */hint: MoqVideoHint? = nil, 
+        /**
+         * Track name. `None` derives a unique name from the format. Refused on a requested track,
+         * which already carries its name.
+         */track: String? = nil) {
         self.format = format
         self.data = data
         self.label = label
         self.hint = hint
+        self.track = track
     }
 
     
@@ -12420,7 +12467,8 @@ public struct FfiConverterTypeMoqVideoInit: FfiConverterRustBuffer {
                 format: FfiConverterTypeMoqVideoFormat.read(from: &buf), 
                 data: FfiConverterData.read(from: &buf), 
                 label: FfiConverterOptionString.read(from: &buf), 
-                hint: FfiConverterOptionTypeMoqVideoHint.read(from: &buf)
+                hint: FfiConverterOptionTypeMoqVideoHint.read(from: &buf), 
+                track: FfiConverterOptionString.read(from: &buf)
         )
     }
 
@@ -12429,6 +12477,7 @@ public struct FfiConverterTypeMoqVideoInit: FfiConverterRustBuffer {
         FfiConverterData.write(value.data, into: &buf)
         FfiConverterOptionString.write(value.label, into: &buf)
         FfiConverterOptionTypeMoqVideoHint.write(value.hint, into: &buf)
+        FfiConverterOptionString.write(value.track, into: &buf)
     }
 }
 
@@ -15280,7 +15329,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_finish() != 7183) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_audio() != 47444) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_audio() != 31691) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_audio_on_track() != 33897) {
@@ -15371,6 +15420,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqmediaproducer_finish() != 38480) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_flush() != 10235) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqmediaproducer_name() != 7199) {

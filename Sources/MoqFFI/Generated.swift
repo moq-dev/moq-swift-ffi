@@ -983,7 +983,7 @@ public protocol MoqAnnouncedBroadcastProtocol: AnyObject, Sendable {
     /**
      * Wait until the broadcast is announced. Returns `Closed` if cancelled or the origin is closed.
      *
-     * Use `broadcast.closed()` to learn when the broadcast ends.
+     * Its end arrives as an inactive [`MoqAnnounceUpdate`] on the origin's announcements.
      */
     func available() async throws  -> MoqBroadcastConsumer
     
@@ -1054,7 +1054,7 @@ open class MoqAnnouncedBroadcast: MoqAnnouncedBroadcastProtocol, @unchecked Send
     /**
      * Wait until the broadcast is announced. Returns `Closed` if cancelled or the origin is closed.
      *
-     * Use `broadcast.closed()` to learn when the broadcast ends.
+     * Its end arrives as an inactive [`MoqAnnounceUpdate`] on the origin's announcements.
      */
 open func available()async throws  -> MoqBroadcastConsumer  {
     return
@@ -2790,6 +2790,14 @@ public protocol MoqBroadcastProducerProtocol: AnyObject, Sendable {
     func announce(route: MoqRoute) throws 
     
     /**
+     * End the broadcast for good: retract it, serve no new tracks, and finalize the catalog.
+     *
+     * Tracks already subscribed carry on to their own end. Every later call on this
+     * producer fails with `Closed`; closing again is a no-op.
+     */
+    func close() throws 
+    
+    /**
      * Create a consumer that reads from this broadcast's tracks.
      */
     func consume() throws  -> MoqBroadcastConsumer
@@ -2803,8 +2811,7 @@ public protocol MoqBroadcastProducerProtocol: AnyObject, Sendable {
     func dynamic() throws  -> MoqBroadcastDynamic
     
     /**
-     * Finish this publisher, finalizing the catalog stream and cleanly closing the
-     * broadcast so subscribers see a normal end rather than `Error::Dropped`.
+     * Deprecated: use `close()`. A broadcast end carries no cause.
      */
     func finish() throws 
     
@@ -3095,6 +3102,20 @@ open func announce(route: MoqRoute)throws   {try rustCallWithError(FfiConverterT
 }
     
     /**
+     * End the broadcast for good: retract it, serve no new tracks, and finalize the catalog.
+     *
+     * Tracks already subscribed carry on to their own end. Every later call on this
+     * producer fails with `Closed`; closing again is a no-op.
+     */
+open func close()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_close(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+    /**
      * Create a consumer that reads from this broadcast's tracks.
      */
 open func consume()throws  -> MoqBroadcastConsumer  {
@@ -3122,8 +3143,7 @@ open func dynamic()throws  -> MoqBroadcastDynamic  {
 }
     
     /**
-     * Finish this publisher, finalizing the catalog stream and cleanly closing the
-     * broadcast so subscribers see a normal end rather than `Error::Dropped`.
+     * Deprecated: use `close()`. A broadcast end carries no cause.
      */
 open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
@@ -6114,6 +6134,13 @@ public protocol MoqMediaProducerProtocol: AnyObject, Sendable {
     func demand() throws  -> MoqTrackDemand
     
     /**
+     * Mark a timeline break and restart handoff measurement without lowering advertised jitter.
+     *
+     * Publishes a discontinuity marker; resumed frames must continue the broadcast media clock.
+     */
+    func discontinuity() throws 
+    
+    /**
      * Finish this track and finalize encoding.
      */
     func finish() throws 
@@ -6241,6 +6268,19 @@ open func demand()throws  -> MoqTrackDemand  {
             self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
+}
+    
+    /**
+     * Mark a timeline break and restart handoff measurement without lowering advertised jitter.
+     *
+     * Publishes a discontinuity marker; resumed frames must continue the broadcast media clock.
+     */
+open func discontinuity()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqmediaproducer_discontinuity(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
 }
     
     /**
@@ -15685,7 +15725,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqannounceupdate_route() != 8074) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqannouncedbroadcast_available() != 42497) {
+    if (uniffi_moq_ffi_checksum_method_moqannouncedbroadcast_available() != 37458) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqannouncedbroadcast_cancel() != 63175) {
@@ -15751,13 +15791,16 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_announce() != 13700) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_close() != 19191) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_consume() != 27634) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_dynamic() != 55635) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_finish() != 7183) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_finish() != 29562) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_audio() != 31691) {
@@ -15848,6 +15891,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqmediaproducer_demand() != 44491) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_discontinuity() != 37570) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqmediaproducer_finish() != 38480) {

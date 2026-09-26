@@ -1845,6 +1845,296 @@ public func FfiConverterTypeMoqBandwidth_lower(_ value: MoqBandwidth) -> UInt64 
 
 
 
+/**
+ * Publishes opaque payloads that consumers see as a single latest value.
+ */
+public protocol MoqBinarySnapshotProducerProtocol: AnyObject, Sendable {
+    
+    /**
+     * Finish the track and retire its catalog entry.
+     */
+    func finish() throws 
+    
+    /**
+     * Publish a new payload, superseding the last.
+     */
+    func update(payload: Data) throws 
+    
+}
+/**
+ * Publishes opaque payloads that consumers see as a single latest value.
+ */
+open class MoqBinarySnapshotProducer: MoqBinarySnapshotProducerProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_moq_ffi_fn_clone_moqbinarysnapshotproducer(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_moq_ffi_fn_free_moqbinarysnapshotproducer(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Finish the track and retire its catalog entry.
+     */
+open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbinarysnapshotproducer_finish(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Publish a new payload, superseding the last.
+     */
+open func update(payload: Data)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbinarysnapshotproducer_update(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(payload),uniffiCallStatus
+    )
+}
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqBinarySnapshotProducer: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = MoqBinarySnapshotProducer
+
+    public static func lift(_ handle: UInt64) throws -> MoqBinarySnapshotProducer {
+        return MoqBinarySnapshotProducer(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: MoqBinarySnapshotProducer) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqBinarySnapshotProducer {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: MoqBinarySnapshotProducer, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqBinarySnapshotProducer_lift(_ handle: UInt64) throws -> MoqBinarySnapshotProducer {
+    return try FfiConverterTypeMoqBinarySnapshotProducer.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqBinarySnapshotProducer_lower(_ value: MoqBinarySnapshotProducer) -> UInt64 {
+    return FfiConverterTypeMoqBinarySnapshotProducer.lower(value)
+}
+
+
+
+
+
+
+/**
+ * Publishes an ordered log of opaque payloads, one per append.
+ */
+public protocol MoqBinaryStreamProducerProtocol: AnyObject, Sendable {
+    
+    /**
+     * Append one payload to the log.
+     */
+    func append(payload: Data) throws 
+    
+    /**
+     * Finish the track and retire its catalog entry.
+     */
+    func finish() throws 
+    
+}
+/**
+ * Publishes an ordered log of opaque payloads, one per append.
+ */
+open class MoqBinaryStreamProducer: MoqBinaryStreamProducerProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_moq_ffi_fn_clone_moqbinarystreamproducer(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_moq_ffi_fn_free_moqbinarystreamproducer(handle, $0) }
+    }
+
+    
+
+    
+    /**
+     * Append one payload to the log.
+     */
+open func append(payload: Data)throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbinarystreamproducer_append(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(payload),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Finish the track and retire its catalog entry.
+     */
+open func finish()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbinarystreamproducer_finish(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqBinaryStreamProducer: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = MoqBinaryStreamProducer
+
+    public static func lift(_ handle: UInt64) throws -> MoqBinaryStreamProducer {
+        return MoqBinaryStreamProducer(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: MoqBinaryStreamProducer) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqBinaryStreamProducer {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: MoqBinaryStreamProducer, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqBinaryStreamProducer_lift(_ handle: UInt64) throws -> MoqBinaryStreamProducer {
+    return try FfiConverterTypeMoqBinaryStreamProducer.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqBinaryStreamProducer_lower(_ value: MoqBinaryStreamProducer) -> UInt64 {
+    return FfiConverterTypeMoqBinaryStreamProducer.lower(value)
+}
+
+
+
+
+
+
 public protocol MoqBroadcastConsumerProtocol: AnyObject, Sendable {
     
     /**
@@ -2460,15 +2750,33 @@ public protocol MoqBroadcastProducerProtocol: AnyObject, Sendable {
     func encodeAudio(name: String, input: MoqAudioEncoderInput, output: MoqAudioEncoderOutput, bandwidth: MoqBandwidth?) throws  -> MoqAudioProducer
     
     /**
-     * Publish a JSON snapshot track (lossy latest-value) by name.
+     * Publish a binary snapshot track (lossy latest-value) by name, advertised in the catalog.
      *
-     * Advertise it in the catalog yourself with
-     * [`set_catalog_section`](Self::set_catalog_section) if consumers should discover it.
+     * Errors if the catalog already carries an entry under `name`.
+     */
+    func publishBinarySnapshot(name: String, config: MoqBinaryConfig) throws  -> MoqBinarySnapshotProducer
+    
+    /**
+     * Publish a binary stream track (lossless append-log) by name, advertised in the catalog.
+     *
+     * Errors if the catalog already carries an entry under `name`.
+     */
+    func publishBinaryStream(name: String, config: MoqBinaryConfig) throws  -> MoqBinaryStreamProducer
+    
+    /**
+     * Publish a JSON snapshot track (lossy latest-value) by name, advertised in the catalog.
+     *
+     * The broadcast's catalog carries `json.tracks.<name>` (`mode: snapshot`, and
+     * `compression: deflate` when set) for as long as the track lives; finishing or dropping the
+     * producer retires it. Errors if the catalog already carries an entry under `name`.
      */
     func publishJsonSnapshot(name: String, config: MoqJsonSnapshotConfig) throws  -> MoqJsonSnapshotProducer
     
     /**
-     * Publish a JSON stream track (lossless append-log) by name.
+     * Publish a JSON stream track (lossless append-log) by name, advertised in the catalog.
+     *
+     * The broadcast's catalog carries `json.tracks.<name>` (`mode: stream`) for as long as the
+     * track lives. Errors if the catalog already carries an entry under `name`.
      */
     func publishJsonStream(name: String, config: MoqJsonStreamConfig) throws  -> MoqJsonStreamProducer
     
@@ -2704,10 +3012,43 @@ open func encodeAudio(name: String, input: MoqAudioEncoderInput, output: MoqAudi
 }
     
     /**
-     * Publish a JSON snapshot track (lossy latest-value) by name.
+     * Publish a binary snapshot track (lossy latest-value) by name, advertised in the catalog.
      *
-     * Advertise it in the catalog yourself with
-     * [`set_catalog_section`](Self::set_catalog_section) if consumers should discover it.
+     * Errors if the catalog already carries an entry under `name`.
+     */
+open func publishBinarySnapshot(name: String, config: MoqBinaryConfig)throws  -> MoqBinarySnapshotProducer  {
+    return try  FfiConverterTypeMoqBinarySnapshotProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_binary_snapshot(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(name),
+        FfiConverterTypeMoqBinaryConfig_lower(config),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Publish a binary stream track (lossless append-log) by name, advertised in the catalog.
+     *
+     * Errors if the catalog already carries an entry under `name`.
+     */
+open func publishBinaryStream(name: String, config: MoqBinaryConfig)throws  -> MoqBinaryStreamProducer  {
+    return try  FfiConverterTypeMoqBinaryStreamProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqbroadcastproducer_publish_binary_stream(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(name),
+        FfiConverterTypeMoqBinaryConfig_lower(config),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Publish a JSON snapshot track (lossy latest-value) by name, advertised in the catalog.
+     *
+     * The broadcast's catalog carries `json.tracks.<name>` (`mode: snapshot`, and
+     * `compression: deflate` when set) for as long as the track lives; finishing or dropping the
+     * producer retires it. Errors if the catalog already carries an entry under `name`.
      */
 open func publishJsonSnapshot(name: String, config: MoqJsonSnapshotConfig)throws  -> MoqJsonSnapshotProducer  {
     return try  FfiConverterTypeMoqJsonSnapshotProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
@@ -2721,7 +3062,10 @@ open func publishJsonSnapshot(name: String, config: MoqJsonSnapshotConfig)throws
 }
     
     /**
-     * Publish a JSON stream track (lossless append-log) by name.
+     * Publish a JSON stream track (lossless append-log) by name, advertised in the catalog.
+     *
+     * The broadcast's catalog carries `json.tracks.<name>` (`mode: stream`) for as long as the
+     * track lives. Errors if the catalog already carries an entry under `name`.
      */
 open func publishJsonStream(name: String, config: MoqJsonStreamConfig)throws  -> MoqJsonStreamProducer  {
     return try  FfiConverterTypeMoqJsonStreamProducer_lift(try rustCallWithError(FfiConverterTypeMoqError_lift) {
@@ -10473,6 +10817,75 @@ public func FfiConverterTypeMoqBackoff_lower(_ value: MoqBackoff) -> RustBuffer 
 }
 
 
+/**
+ * Options for a binary data track, in either mode (the mode is fixed by the constructor).
+ */
+public struct MoqBinaryConfig: Equatable, Hashable {
+    /**
+     * DEFLATE-compress each payload, advertised in the catalog entry.
+     */
+    public var compression: Bool
+    /**
+     * The payloads' media type (e.g. `image/jpeg`), or `None` to leave it unstated.
+     */
+    public var mime: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * DEFLATE-compress each payload, advertised in the catalog entry.
+         */compression: Bool = false, 
+        /**
+         * The payloads' media type (e.g. `image/jpeg`), or `None` to leave it unstated.
+         */mime: String? = nil) {
+        self.compression = compression
+        self.mime = mime
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension MoqBinaryConfig: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeMoqBinaryConfig: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoqBinaryConfig {
+        return
+            try MoqBinaryConfig(
+                compression: FfiConverterBool.read(from: &buf), 
+                mime: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MoqBinaryConfig, into buf: inout [UInt8]) {
+        FfiConverterBool.write(value.compression, into: &buf)
+        FfiConverterOptionString.write(value.mime, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqBinaryConfig_lift(_ buf: RustBuffer) throws -> MoqBinaryConfig {
+    return try FfiConverterTypeMoqBinaryConfig.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeMoqBinaryConfig_lower(_ value: MoqBinaryConfig) -> RustBuffer {
+    return FfiConverterTypeMoqBinaryConfig.lower(value)
+}
+
+
 public struct MoqCatalog: Equatable, Hashable {
     public var video: [String: MoqVideo]
     public var audio: [String: MoqAudio]
@@ -15119,6 +15532,18 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqreservation_update() != 9626) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_moq_ffi_checksum_method_moqbinarysnapshotproducer_finish() != 10338) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqbinarysnapshotproducer_update() != 56077) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqbinarystreamproducer_append() != 1645) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqbinarystreamproducer_finish() != 60630) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastconsumer_decode_audio() != 18081) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -15311,10 +15736,16 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_encode_audio() != 25334) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_json_snapshot() != 51036) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_binary_snapshot() != 6748) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_json_stream() != 47317) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_binary_stream() != 58418) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_json_snapshot() != 64276) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_publish_json_stream() != 54975) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_announce() != 13700) {

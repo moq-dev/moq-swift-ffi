@@ -2904,8 +2904,8 @@ public protocol MoqBroadcastProducerProtocol: AnyObject, Sendable {
      * Retract this broadcast's exact-path advertisement, if any.
      *
      * Local consumers and peers alike stop discovering and requesting it;
-     * tracks already in flight carry on. Announcing again brings it back. Errors
-     * with `Closed` on a standalone broadcast (no origin to announce on).
+     * tracks already in flight carry on. Announcing again brings it back. A no-op
+     * on a standalone broadcast.
      */
     func unannounce() throws 
     
@@ -3331,8 +3331,8 @@ open func setVideoProperties(properties: MoqVideoProperties)throws   {try rustCa
      * Retract this broadcast's exact-path advertisement, if any.
      *
      * Local consumers and peers alike stop discovering and requesting it;
-     * tracks already in flight carry on. Announcing again brings it back. Errors
-     * with `Closed` on a standalone broadcast (no origin to announce on).
+     * tracks already in flight carry on. Announcing again brings it back. A no-op
+     * on a standalone broadcast.
      */
 open func unannounce()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
@@ -6136,7 +6136,8 @@ public protocol MoqMediaProducerProtocol: AnyObject, Sendable {
     /**
      * Mark a timeline break and restart handoff measurement without lowering advertised jitter.
      *
-     * Publishes a discontinuity marker; resumed frames must continue the broadcast media clock.
+     * Publishes a discontinuity marker; resumed frames must continue the broadcast media clock,
+     * and video must resume on a keyframe.
      */
     func discontinuity() throws 
     
@@ -6273,7 +6274,8 @@ open func demand()throws  -> MoqTrackDemand  {
     /**
      * Mark a timeline break and restart handoff measurement without lowering advertised jitter.
      *
-     * Publishes a discontinuity marker; resumed frames must continue the broadcast media clock.
+     * Publishes a discontinuity marker; resumed frames must continue the broadcast media clock,
+     * and video must resume on a keyframe.
      */
 open func discontinuity()throws   {try rustCallWithError(FfiConverterTypeMoqError_lift) {
         uniffiCallStatus in
@@ -15836,7 +15838,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_set_video_properties() != 9178) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_unannounce() != 63513) {
+    if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_unannounce() != 49647) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqbroadcastproducer_encode_video() != 49251) {
@@ -15893,7 +15895,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqmediaproducer_demand() != 44491) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_discontinuity() != 37570) {
+    if (uniffi_moq_ffi_checksum_method_moqmediaproducer_discontinuity() != 35894) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqmediaproducer_finish() != 38480) {

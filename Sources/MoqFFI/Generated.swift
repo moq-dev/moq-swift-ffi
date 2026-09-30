@@ -1139,7 +1139,7 @@ public func FfiConverterTypeMoqAnnouncedBroadcast_lower(_ value: MoqAnnouncedBro
  * Audio codec selection for the encoder.
  *
  * An immutable object so adding a codec later does not break callers
- * switching over a closed enum. Currently only Opus is available.
+ * switching over a closed enum.
  */
 public protocol MoqAudioCodecProtocol: AnyObject, Sendable {
     
@@ -1148,7 +1148,7 @@ public protocol MoqAudioCodecProtocol: AnyObject, Sendable {
  * Audio codec selection for the encoder.
  *
  * An immutable object so adding a codec later does not break callers
- * switching over a closed enum. Currently only Opus is available.
+ * switching over a closed enum.
  */
 open class MoqAudioCodec: MoqAudioCodecProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
@@ -1200,6 +1200,19 @@ open class MoqAudioCodec: MoqAudioCodecProtocol, @unchecked Sendable {
         try! rustCall { uniffi_moq_ffi_fn_free_moqaudiocodec(handle, $0) }
     }
 
+    
+    /**
+     * AAC-LC (`mp4a.40.2`) through the platform's encoder, at the input's rate
+     * and layout. A host without one refuses it when the producer is built.
+     * Its frames are 1024 samples, so leave `frame_duration_us` at 0.
+     */
+public static func aac() -> MoqAudioCodec  {
+    return try!  FfiConverterTypeMoqAudioCodec_lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_constructor_moqaudiocodec_aac(uniffiCallStatus
+    )
+})
+}
     
     /**
      * Opus (RFC 6716).
@@ -6795,6 +6808,9 @@ public func FfiConverterTypeMoqOriginConsumer_lower(_ value: MoqOriginConsumer) 
 /**
  * A served route: advertises a path prefix and yields the broadcast requests
  * beneath it for the application to accept or reject.
+ *
+ * Keeps its origin running, like a published broadcast, after every
+ * `MoqOriginProducer` is gone.
  */
 public protocol MoqOriginDynamicProtocol: AnyObject, Sendable {
     
@@ -6823,6 +6839,9 @@ public protocol MoqOriginDynamicProtocol: AnyObject, Sendable {
 /**
  * A served route: advertises a path prefix and yields the broadcast requests
  * beneath it for the application to accept or reject.
+ *
+ * Keeps its origin running, like a published broadcast, after every
+ * `MoqOriginProducer` is gone.
  */
 open class MoqOriginDynamic: MoqOriginDynamicProtocol, @unchecked Sendable {
     fileprivate let handle: UInt64
@@ -10365,7 +10384,9 @@ public struct MoqAudioDecoderOutput: Equatable, Hashable {
      */
     public var sampleRate: UInt32?
     /**
-     * `None` delivers samples at the codec's native channel count.
+     * `None` delivers samples at the codec's native channel count. A count
+     * names its layout as [`MoqAudioEncoderInput::channels`] describes, and
+     * the decoder remixes to it.
      */
     public var channels: UInt32?
     /**
@@ -10388,7 +10409,9 @@ public struct MoqAudioDecoderOutput: Equatable, Hashable {
          * `None` delivers samples at the codec's native rate.
          */sampleRate: UInt32? = nil, 
         /**
-         * `None` delivers samples at the codec's native channel count.
+         * `None` delivers samples at the codec's native channel count. A count
+         * names its layout as [`MoqAudioEncoderInput::channels`] describes, and
+         * the decoder remixes to it.
          */channels: UInt32? = nil, 
         /**
          * Upper bound on buffering before skipping a stalled group, in
@@ -10460,11 +10483,21 @@ public func FfiConverterTypeMoqAudioDecoderOutput_lower(_ value: MoqAudioDecoder
 public struct MoqAudioEncoderInput: Equatable, Hashable {
     public var format: MoqAudioSampleFormat
     public var sampleRate: UInt32
+    /**
+     * Interleaved channel count, which also names the speaker layout by the
+     * WAVE convention: 1 mono, 2 stereo, 3 2.1, 4 quad, 5 5.0, 6 5.1, 7 6.1,
+     * 8 7.1, in front left, front right, center, LFE, back, side order.
+     */
     public var channels: UInt32
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(format: MoqAudioSampleFormat, sampleRate: UInt32, channels: UInt32) {
+    public init(format: MoqAudioSampleFormat, sampleRate: UInt32, 
+        /**
+         * Interleaved channel count, which also names the speaker layout by the
+         * WAVE convention: 1 mono, 2 stereo, 3 2.1, 4 quad, 5 5.0, 6 5.1, 7 6.1,
+         * 8 7.1, in front left, front right, center, LFE, back, side order.
+         */channels: UInt32) {
         self.format = format
         self.sampleRate = sampleRate
         self.channels = channels
@@ -10528,7 +10561,7 @@ public struct MoqAudioEncoderOutput {
     /**
      * Encoded frame duration in microseconds. Opus accepts exactly
      * 2500/5000/10000/20000/40000/60000 us, and the default 20 ms matches the
-     * JS publish path.
+     * JS publish path. 0 takes the codec's own frame, which AAC needs.
      */
     public var frameDurationUs: UInt32
 
@@ -10538,7 +10571,7 @@ public struct MoqAudioEncoderOutput {
         /**
          * Encoded frame duration in microseconds. Opus accepts exactly
          * 2500/5000/10000/20000/40000/60000 us, and the default 20 ms matches the
-         * JS publish path.
+         * JS publish path. 0 takes the codec's own frame, which AAC needs.
          */frameDurationUs: UInt32 = UInt32(20000)) {
         self.codec = codec
         self.sampleRate = sampleRate
@@ -13512,6 +13545,8 @@ public func FfiConverterTypeMoqContainerFormat_lower(_ value: MoqContainerFormat
 
 /**
  * Error returned by all UniFFI-exported functions.
+ *
+ * Exports `Display`, which the bindings surface as the error's string form.
  */
 public 
 enum MoqError: Swift.Error, Equatable, Hashable, Foundation.LocalizedError {
@@ -13616,6 +13651,17 @@ enum MoqError: Swift.Error, Equatable, Hashable, Foundation.LocalizedError {
     
 
     
+// The local Rust `Display` implementation.
+public var description: String {
+    return try!  FfiConverterString.lift(
+        try! rustCall() {
+        uniffiCallStatus in
+    uniffi_moq_ffi_fn_method_moqerror_uniffi_trait_display(
+            FfiConverterTypeMoqError_lower(self),uniffiCallStatus
+    )
+}
+    )
+}
 
     
     public var errorDescription: String? {
@@ -16145,6 +16191,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqvideoproducer_write() != 6141) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_constructor_moqaudiocodec_aac() != 18170) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_constructor_moqaudiocodec_opus() != 64803) {

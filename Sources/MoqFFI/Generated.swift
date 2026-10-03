@@ -8446,7 +8446,7 @@ public protocol MoqTrackConsumerProtocol: AnyObject, Sendable {
      * Receive the next best-effort datagram in arrival order.
      *
      * Returns `None` when the track ends. Datagram delivery is unavailable over
-     * IETF moq-transport, pre-lite-05 moq-lite, and stream-only transports.
+     * pre-lite-05 moq-lite and stream-only transports.
      * Datagrams are a separate cursor from groups, so this works alongside either
      * group order, never commits the track to one, and progresses while a group
      * read is pending.
@@ -8610,7 +8610,7 @@ open func readFrame()async throws  -> MoqFrame?  {
      * Receive the next best-effort datagram in arrival order.
      *
      * Returns `None` when the track ends. Datagram delivery is unavailable over
-     * IETF moq-transport, pre-lite-05 moq-lite, and stream-only transports.
+     * pre-lite-05 moq-lite and stream-only transports.
      * Datagrams are a separate cursor from groups, so this works alongside either
      * group order, never commits the track to one, and progresses while a group
      * read is pending.
@@ -12116,11 +12116,12 @@ public func FfiConverterTypeMoqSubscription_lower(_ value: MoqSubscription) -> R
  * Publisher-side track properties, mirroring [`moq_net::track::Info`].
  *
  * Construct with the fields you care about; the rest use raw-track defaults
- * (priority 0, the publisher's default max age, microsecond timescale).
+ * (priority 127, the publisher's default max age, microsecond timescale).
  */
 public struct MoqTrackInfo: Equatable, Hashable {
     /**
      * Priority, used only to break ties between subscriptions of equal subscriber priority.
+     * Higher is more urgent; the default 127 is the midpoint.
      */
     public var priority: UInt8
     /**
@@ -12139,7 +12140,8 @@ public struct MoqTrackInfo: Equatable, Hashable {
     public init(
         /**
          * Priority, used only to break ties between subscriptions of equal subscriber priority.
-         */priority: UInt8 = UInt8(0), 
+         * Higher is more urgent; the default 127 is the midpoint.
+         */priority: UInt8 = UInt8(127), 
         /**
          * Maximum age of a non-latest group before the publisher evicts it, in
          * microseconds. Null uses the default. This is the publisher-side half of
@@ -15704,7 +15706,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_read_frame() != 42799) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_recv_datagram() != 29049) {
+    if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_recv_datagram() != 17412) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqtrackconsumer_recv_group() != 60887) {

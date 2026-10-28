@@ -8078,6 +8078,16 @@ public protocol MoqSessionProtocol: AnyObject, Sendable {
     func consume()  -> MoqOriginConsumer
     
     /**
+     * Drain finished tracks within one second, then close, returning any drain error.
+     *
+     * Finish or abort live tracks first; [`shutdown`](Self::shutdown) and
+     * [`cancel`](Self::cancel) stay immediate. Explicit `moq-lite-07-wip` waits for
+     * the peer to receive the tail. Older Lite versions, including the default
+     * lite-06, wait only for transport ACKs. moq-transport (IETF) closes without waiting.
+     */
+    func drain() async throws 
+    
+    /**
      * The connection epoch: 1 for the connect this session was built from, one more
      * on each reconnect. A server-accepted session is a single transport, so it stays 1.
      *
@@ -8255,6 +8265,30 @@ open func consume() -> MoqOriginConsumer  {
             self.uniffiCloneHandle(),uniffiCallStatus
     )
 })
+}
+    
+    /**
+     * Drain finished tracks within one second, then close, returning any drain error.
+     *
+     * Finish or abort live tracks first; [`shutdown`](Self::shutdown) and
+     * [`cancel`](Self::cancel) stay immediate. Explicit `moq-lite-07-wip` waits for
+     * the peer to receive the tail. Older Lite versions, including the default
+     * lite-06, wait only for transport ACKs. moq-transport (IETF) closes without waiting.
+     */
+open func drain()async throws   {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_moq_ffi_fn_method_moqsession_drain(
+                        self.uniffiCloneHandle()
+                )
+            },
+            pollFunc: ffi_moq_ffi_rust_future_poll_void,
+            completeFunc: ffi_moq_ffi_rust_future_complete_void,
+            freeFunc: ffi_moq_ffi_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeMoqError_lift
+        )
 }
     
     /**
@@ -12793,7 +12827,7 @@ public struct MoqVideoHint: Equatable, Hashable {
      */
     public var coded: MoqDimensions?
     /**
-     * The display aspect ratio.
+     * The aspect ratio the whole picture is displayed at, not the sample aspect. Absent means the decoded shape.
      */
     public var displayAspect: MoqDimensions?
     /**
@@ -12816,7 +12850,7 @@ public struct MoqVideoHint: Equatable, Hashable {
          * The encoded pixel dimensions.
          */coded: MoqDimensions? = nil, 
         /**
-         * The display aspect ratio.
+         * The aspect ratio the whole picture is displayed at, not the sample aspect. Absent means the decoded shape.
          */displayAspect: MoqDimensions? = nil, 
         /**
          * The maximum bitrate in bits per second.
@@ -16145,6 +16179,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqsession_consume() != 45358) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_moq_ffi_checksum_method_moqsession_drain() != 51983) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_moq_ffi_checksum_method_moqsession_epoch() != 32695) {

@@ -2,7 +2,7 @@
 // Released manifest for the raw UniFFI bindings package at moq-dev/moq-swift-ffi.
 // The source-of-truth template lives at swift/ffi/Package.swift.template in
 // moq-dev/moq; sh/swift/package-ffi.sh substitutes the xcframework URL and
-// SHA-256 (https://github.com/moq-dev/moq/releases/download/moq-ffi-v0.4.18/MoqFFI.xcframework.zip / d3388eeb018ca28ffcf1f0875c0f493ba0d2ab6c92805690f5f22384c90d99ef) at release time.
+// SHA-256 (https://github.com/moq-dev/moq/releases/download/moq-ffi-v0.4.19/MoqFFI.xcframework.zip / b1d7fdf600d85003cd75fd01d1335e9ae642d3ace17399662ce91d30cf305434) at release time.
 //
 // Lockstep with the moq-ffi Rust crate: each moq-ffi-v* tag publishes a matching
 // bare-semver tag here. Most callers want the ergonomic `Moq` wrapper at
@@ -43,8 +43,8 @@ let package = Package(
         ),
         .binaryTarget(
             name: "MoqFFIBinary",
-            url: "https://github.com/moq-dev/moq/releases/download/moq-ffi-v0.4.18/MoqFFI.xcframework.zip",
-            checksum: "d3388eeb018ca28ffcf1f0875c0f493ba0d2ab6c92805690f5f22384c90d99ef"
+            url: "https://github.com/moq-dev/moq/releases/download/moq-ffi-v0.4.19/MoqFFI.xcframework.zip",
+            checksum: "b1d7fdf600d85003cd75fd01d1335e9ae642d3ace17399662ce91d30cf305434"
         ),
     ]
 )
